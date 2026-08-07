@@ -1,0 +1,10 @@
+# NetworkPolicy enabled, narrowed to a single source range.
+service:
+  type: ClusterIP
+
+networkPolicy:
+  enabled: true
+  allowedSourceRanges:
+    - 203.0.113.0/24
+  egress:
+    enabled: true

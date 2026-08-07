@@ -1,0 +1,140 @@
+matches the recorded default render:
+  1: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: satisfactory-server
+        app.kubernetes.io/version: v1.9.10
+        helm.sh/chart: satisfactory-server-0.1.0
+      name: RELEASE-NAME-satisfactory-server
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app.kubernetes.io/instance: RELEASE-NAME
+          app.kubernetes.io/name: satisfactory-server
+      strategy:
+        type: Recreate
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/instance: RELEASE-NAME
+            app.kubernetes.io/name: satisfactory-server
+        spec:
+          automountServiceAccountToken: false
+          containers:
+            - env:
+                - name: PUID
+                  value: "1000"
+                - name: PGID
+                  value: "1000"
+                - name: MAXPLAYERS
+                  value: "4"
+                - name: MAXTICKRATE
+                  value: "30"
+                - name: MAXOBJECTS
+                  value: "2162688"
+                - name: AUTOSAVENUM
+                  value: "5"
+                - name: SERVERSTREAMING
+                  value: "true"
+                - name: DISABLESEASONALEVENTS
+                  value: "false"
+                - name: SKIPUPDATE
+                  value: "false"
+                - name: TIMEOUT
+                  value: "30"
+                - name: MULTIHOME
+                  value: '::'
+                - name: DEBUG
+                  value: "false"
+                - name: LOG
+                  value: "false"
+                - name: VMOVERRIDE
+                  value: "false"
+                - name: SERVERGAMEPORT
+                  value: "7777"
+                - name: SERVERMESSAGINGPORT
+                  value: "8888"
+                - name: STEAMBETA
+                  value: "false"
+              image: wolveix/satisfactory-server:v1.9.10
+              imagePullPolicy: IfNotPresent
+              livenessProbe:
+                exec:
+                  command:
+                    - /bin/bash
+                    - /home/steam/healthcheck.sh
+                failureThreshold: 4
+                initialDelaySeconds: 0
+                periodSeconds: 30
+                successThreshold: 1
+                timeoutSeconds: 10
+              name: satisfactory-server
+              ports:
+                - containerPort: 7777
+                  name: game-tcp
+                  protocol: TCP
+                - containerPort: 7777
+                  name: game-udp
+                  protocol: UDP
+                - containerPort: 8888
+                  name: messaging
+                  protocol: TCP
+              readinessProbe:
+                exec:
+                  command:
+                    - /bin/bash
+                    - /home/steam/healthcheck.sh
+                failureThreshold: 3
+                initialDelaySeconds: 0
+                periodSeconds: 15
+                successThreshold: 1
+                timeoutSeconds: 10
+              resources:
+                limits:
+                  memory: 12Gi
+                requests:
+                  cpu: 2
+                  memory: 8Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: false
+                seccompProfile:
+                  type: RuntimeDefault
+              startupProbe:
+                exec:
+                  command:
+                    - /bin/bash
+                    - /home/steam/healthcheck.sh
+                failureThreshold: 120
+                initialDelaySeconds: 30
+                periodSeconds: 15
+                successThreshold: 1
+                timeoutSeconds: 10
+              volumeMounts:
+                - mountPath: /config
+                  name: config
+                - mountPath: /config/gamefiles
+                  name: gamefiles
+          securityContext:
+            fsGroup: 1000
+            fsGroupChangePolicy: OnRootMismatch
+            runAsGroup: 1000
+            runAsNonRoot: true
+            runAsUser: 1000
+          serviceAccountName: RELEASE-NAME-satisfactory-server
+          terminationGracePeriodSeconds: 60
+          volumes:
+            - name: config
+              persistentVolumeClaim:
+                claimName: RELEASE-NAME-satisfactory-server-config
+            - name: gamefiles
+              persistentVolumeClaim:
+                claimName: RELEASE-NAME-satisfactory-server-gamefiles

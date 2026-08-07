@@ -1,0 +1,193 @@
+# Networking
+
+## What the server needs
+
+| Port | Protocol | Purpose |
+|---|---|---|
+| 7777 | TCP | HTTPS API — server management, and the health check |
+| 7777 | UDP | Game traffic |
+| 8888 | TCP | Messaging |
+
+**All three are required, and all three must be reachable end to end** — through
+the Service, through the load balancer, and through your router. Since
+Satisfactory 1.1 this includes 8888/TCP; the chart therefore has no switch to
+disable it. See the upstream [1.1 upgrade notes][1-1].
+
+[1-1]: https://github.com/wolveix/satisfactory-server/wiki/Upgrading-for-1.1
+
+This is the single most common way a Satisfactory server ends up half-working.
+The two symptoms are worth telling apart:
+
+- **Server appears in the list but joining never completes** — 7777/UDP is not
+  getting through.
+- **Server is reachable but the client reports API connectivity errors** —
+  8888/TCP is not getting through.
+
+If you change `server.gamePort` or `server.messagingPort`, the chart moves the
+environment variable, the container ports, the Service and the NetworkPolicy
+together, so there is only one place to change it.
+
+## The default: one LoadBalancer, mixed protocols
+
+```yaml
+service:
+  type: LoadBalancer
+```
+
+One Service carries all three ports, so players get a single address. Mixed
+protocols on a single load balancer went GA in Kubernetes 1.26, which is why
+`Chart.yaml` declares that floor.
+
+Most load balancer implementations take their configuration through annotations:
+
+```yaml
+service:
+  annotations:
+    example.com/address-pool: games
+  # Some implementations still honour this; most prefer an annotation, and
+  # Kubernetes has deprecated the field.
+  loadBalancerIP: ""
+```
+
+### If your provider rejects mixed protocols
+
+Some cloud load balancers will not put TCP and UDP behind one address. The
+workaround is two Services on one IP, which the chart supports through
+`extraObjects` rather than by rendering a second Service nobody else needs:
+
+```yaml
+service:
+  type: LoadBalancer
+  annotations:
+    example.com/allow-shared-ip: satisfactory
+
+extraObjects:
+  - |
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: {{ .Release.Name }}-satisfactory-server-udp
+      annotations:
+        example.com/allow-shared-ip: satisfactory
+    spec:
+      type: LoadBalancer
+      ports:
+        - name: game-udp
+          port: 7777
+          targetPort: game-udp
+          protocol: UDP
+      selector:
+        app.kubernetes.io/name: satisfactory-server
+        app.kubernetes.io/instance: {{ .Release.Name }}
+```
+
+You would then remove the UDP port from the main Service. How the two Services
+end up sharing one address is provider-specific — that annotation is a
+placeholder for whatever yours calls it.
+
+## NodePort
+
+```yaml
+service:
+  type: NodePort
+  nodePorts:
+    gameTcp: 30777
+    gameUdp: 30777
+    messaging: 30888
+```
+
+Players connect to any node's address on the node port. Fixed node ports keep
+the address stable across reinstalls, which matters when you have told people
+where to connect. Both the TCP and UDP node ports need forwarding at the router.
+
+## Host network
+
+```yaml
+hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet
+service:
+  type: ClusterIP
+```
+
+The pod claims 7777 and 8888 directly on whichever node it lands on. Simple, and
+avoids a hop, at the cost of pinning the ports on that node and losing them as
+cluster-level resources. The chart rejects `hostNetwork` combined with a
+`LoadBalancer` Service, since the load balancer would be doing nothing.
+
+Pin the pod to a known node so the address does not move:
+
+```yaml
+nodeSelector:
+  kubernetes.io/hostname: node-name
+```
+
+## ClusterIP and port-forwarding
+
+```yaml
+service:
+  type: ClusterIP
+```
+
+Nothing outside the cluster can reach it. Useful for a server you connect to
+over a VPN that already puts you on the cluster network, or for testing.
+
+`kubectl port-forward` will let you check the API responds, but **it only
+carries TCP**, so you cannot actually join a game through it.
+
+## Preserving client addresses
+
+```yaml
+service:
+  externalTrafficPolicy: Local
+```
+
+`Cluster` (the default) may hop through a second node, and the server sees the
+node address rather than the player's. `Local` avoids the hop and preserves the
+source address, but only routes to nodes actually running the pod — with one
+replica, that is exactly one node. Whether your load balancer handles that
+correctly depends on the implementation.
+
+## Firewall and router
+
+For a server reachable from the internet, forward to whatever address the
+Service ends up on:
+
+- 7777/TCP
+- 7777/UDP
+- 8888/TCP
+
+All three, not a subset. If you changed `server.gamePort` or
+`server.messagingPort`, forward those instead.
+
+## NetworkPolicy
+
+Off by default. When enabled it allows the game ports from
+`networkPolicy.allowedSourceRanges` and manages egress:
+
+```yaml
+networkPolicy:
+  enabled: true
+  allowedSourceRanges:
+    - 0.0.0.0/0
+  egress:
+    enabled: true
+```
+
+Egress needs care. **The server contacts Steam on every start to update the
+game, and that failing does not degrade gracefully — the container exits.** The
+default egress rule allows the internet while excluding RFC1918 ranges, so a
+compromised game server cannot reach the rest of your network, and separately
+allows DNS to the cluster resolver.
+
+If you would rather not manage egress at all:
+
+```yaml
+networkPolicy:
+  enabled: true
+  egress:
+    enabled: false
+```
+
+A restrictive egress policy is workable alongside `server.skipUpdate: true`, but
+then you are responsible for updating the game yourself, and a client running a
+newer build will not be able to connect.

@@ -1,0 +1,28 @@
+# Running as root, for storage backends that ignore fsGroup or for a volume that
+# already carries the wrong ownership. The entrypoint chowns /config and then
+# drops to the steam user with gosu.
+#
+# Note this is not simply runAsUser: 0 -- dropping ALL capabilities would break
+# the very chown and setuid the root path exists to perform.
+service:
+  type: ClusterIP
+
+podSecurityContext:
+  runAsUser: 0
+  runAsNonRoot: false
+  fsGroup: 1000
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+      - FOWNER
+  seccompProfile:
+    type: RuntimeDefault

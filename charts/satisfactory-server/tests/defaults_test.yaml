@@ -1,0 +1,82 @@
+suite: probes and default render
+templates:
+  - deployment.yaml
+tests:
+  # All three probes run the image's own health check, which POSTs to the game
+  # port. That keeps the probe on the right port when the port is changed.
+  - it: runs the image's own health check for every probe
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.exec.command
+          value: [/bin/bash, /home/steam/healthcheck.sh]
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.exec.command
+          value: [/bin/bash, /home/steam/healthcheck.sh]
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.exec.command
+          value: [/bin/bash, /home/steam/healthcheck.sh]
+
+  # First boot downloads roughly 15GB through SteamCMD before the server answers
+  # anything. 120 attempts at 15s is a 30 minute budget.
+  - it: gives the first SteamCMD download a long startup budget
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.failureThreshold
+          value: 120
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.periodSeconds
+          value: 15
+
+  - it: leaves liveness to the startup probe until the server is up
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.initialDelaySeconds
+          value: 0
+
+  - it: allows individual probes to be disabled
+    set:
+      probes:
+        liveness:
+          enabled: false
+        startup:
+          enabled: false
+    asserts:
+      - isNull:
+          path: spec.template.spec.containers[0].livenessProbe
+      - isNull:
+          path: spec.template.spec.containers[0].startupProbe
+      - isNotNull:
+          path: spec.template.spec.containers[0].readinessProbe
+
+  - it: does not cap CPU by default, which would throttle the tick loop
+    asserts:
+      - isNull:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 8Gi
+
+  - it: does not mount a service account token
+    asserts:
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+
+  - it: uses the appVersion as the image tag
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: ^wolveix/satisfactory-server:v[0-9]+\.[0-9]+\.[0-9]+$
+
+  - it: honours an explicit image tag
+    set:
+      image:
+        tag: dev
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: wolveix/satisfactory-server:dev
+
+  - it: matches the recorded default render
+    asserts:
+      - matchSnapshot: {}

@@ -1,0 +1,76 @@
+{{- /*
+One Service carrying both protocols on the game port. Kubernetes only allows
+mixed protocols on a LoadBalancer from 1.26 (MixedProtocolLBService went GA
+there), which is why Chart.yaml sets that floor. Cloud load balancers that
+reject the combination need the two-Service workaround in docs/networking.md.
+*/ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "satisfactory-server.fullname" . }}
+  labels:
+    {{- include "satisfactory-server.labels" . | nindent 4 }}
+    {{- with .Values.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "LoadBalancer" }}
+  {{- with .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  {{- with .Values.service.loadBalancerClass }}
+  loadBalancerClass: {{ . }}
+  {{- end }}
+  {{- with .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  {{- if and (ne .Values.service.type "ClusterIP") .Values.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy }}
+  {{- end }}
+  {{- with .Values.service.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ . }}
+  {{- end }}
+  {{- with .Values.service.ipFamilies }}
+  ipFamilies:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.service.externalIPs }}
+  externalIPs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  ports:
+    - name: game-tcp
+      port: {{ .Values.server.gamePort }}
+      targetPort: game-tcp
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.gameTcp }}
+      nodePort: {{ .Values.service.nodePorts.gameTcp }}
+      {{- end }}
+    - name: game-udp
+      port: {{ .Values.server.gamePort }}
+      targetPort: game-udp
+      protocol: UDP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.gameUdp }}
+      nodePort: {{ .Values.service.nodePorts.gameUdp }}
+      {{- end }}
+    {{- /* Required since Satisfactory 1.1, not optional: without it clients
+           reach the server but fail with API connectivity errors. */}}
+    - name: messaging
+      port: {{ .Values.server.messagingPort }}
+      targetPort: messaging
+      protocol: TCP
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.messaging }}
+      nodePort: {{ .Values.service.nodePorts.messaging }}
+      {{- end }}
+    {{- with .Values.service.extraPorts }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  selector:
+    {{- include "satisfactory-server.selectorLabels" . | nindent 4 }}

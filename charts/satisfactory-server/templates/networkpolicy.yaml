@@ -1,0 +1,59 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "satisfactory-server.fullname" . }}
+  labels:
+    {{- include "satisfactory-server.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "satisfactory-server.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    {{- if .Values.networkPolicy.egress.enabled }}
+    - Egress
+    {{- end }}
+  ingress:
+    - from:
+        {{- range .Values.networkPolicy.allowedSourceRanges }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        - port: {{ .Values.server.gamePort }}
+          protocol: TCP
+        - port: {{ .Values.server.gamePort }}
+          protocol: UDP
+        - port: {{ .Values.server.messagingPort }}
+          protocol: TCP
+    {{- with .Values.networkPolicy.extraIngress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- if .Values.networkPolicy.egress.enabled }}
+  egress:
+    {{- if .Values.networkPolicy.egress.allowDNS }}
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- end }}
+    # The server contacts Steam on every start to update the game. Blocking this
+    # does not degrade gracefully -- the container exits.
+    - to:
+        {{- range .Values.networkPolicy.egress.allowedDestinations }}
+        - ipBlock:
+            cidr: {{ . }}
+            {{- with $.Values.networkPolicy.egress.exceptDestinations }}
+            except:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+        {{- end }}
+    {{- with .Values.networkPolicy.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

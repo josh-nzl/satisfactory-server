@@ -1,0 +1,149 @@
+name: Lint and test
+
+on:
+  pull_request:
+    paths:
+      - "charts/**"
+      - ".github/workflows/lint-test.yaml"
+      - ".github/ct.yaml"
+  push:
+    branches:
+      - main
+    paths:
+      - "charts/**"
+
+# There is deliberately no `ct install` job here.
+#
+# Installing this chart for real means SteamCMD pulling roughly 15GB of game
+# files into a pod that wants 8GB of RAM. A GitHub-hosted runner cannot do that,
+# and a job that always timed out would be worse than no job at all: it would
+# read as coverage that does not exist. Rendering plus schema validation is the
+# honest limit of what CI can prove here. The live checks are in the repository
+# README, to be run against a real cluster before a release.
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - uses: helm/chart-testing-action@v2
+
+      - name: Detect changed charts
+        id: list-changed
+        run: |
+          changed=$(ct list-changed --config .github/ct.yaml)
+          if [[ -n "$changed" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: helm lint
+        run: helm lint charts/satisfactory-server
+
+      - name: ct lint
+        if: steps.list-changed.outputs.changed == 'true'
+        run: ct lint --config .github/ct.yaml
+
+  unittest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      - name: Install helm-unittest
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest
+
+      - name: Run unit tests
+        run: helm unittest --strict charts/satisfactory-server
+
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1.26 is the floor declared in Chart.yaml: mixed protocols on a
+        # LoadBalancer went GA there.
+        kubernetes: ["1.26.0", "1.29.0", "1.31.0"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz
+          tar xf kubeconform.tar.gz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate default values
+        run: |
+          helm template release charts/satisfactory-server \
+            --kube-version ${{ matrix.kubernetes }} \
+          | kubeconform -strict -summary \
+              -kubernetes-version ${{ matrix.kubernetes }} \
+              -schema-location default
+
+      - name: Validate every ci/ permutation
+        run: |
+          for values in charts/satisfactory-server/ci/*-values.yaml; do
+            echo "==> $values"
+            helm template release charts/satisfactory-server \
+              --values "$values" \
+              --kube-version ${{ matrix.kubernetes }} \
+            | kubeconform -strict -summary \
+                -kubernetes-version ${{ matrix.kubernetes }} \
+                -schema-location default
+          done
+
+      - name: Reject the configurations the chart is supposed to reject
+        run: |
+          # Each of these would otherwise produce a pod that CrashLoops with an
+          # error visible only in the container log.
+          fails() {
+            if helm template release charts/satisfactory-server \
+                 --kube-version ${{ matrix.kubernetes }} "$@" >/dev/null 2>&1; then
+              echo "FAIL: chart rendered a configuration it should reject: $*"
+              exit 1
+            fi
+            echo "ok: rejected $*"
+          }
+          fails --set podSecurityContext.runAsUser=1234
+          fails --set podSecurityContext.runAsGroup=1234
+          fails --set podSecurityContext.runAsUser=0 --set podSecurityContext.runAsNonRoot=true
+          fails --set puid=1001
+          fails --set podSecurityContext.runAsUser=0 --set podSecurityContext.runAsNonRoot=false --set podSecurityContext.fsGroup=0
+          fails --set hostNetwork=true
+          fails --set service.type=Bogus
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the generated values table is current
+        uses: docker://jnorwood/helm-docs:v1.14.2
+        with:
+          args: --chart-search-root=charts --template-files=README.md.gotmpl
+
+      - name: Fail if helm-docs produced a diff
+        run: |
+          if ! git diff --exit-code; then
+            echo "charts/*/README.md is out of date. Run helm-docs and commit the result."
+            exit 1
+          fi

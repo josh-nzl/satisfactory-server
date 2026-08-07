@@ -1,0 +1,103 @@
+suite: port propagation
+tests:
+  # The image's health check reads SERVERGAMEPORT, so the env var, the container
+  # ports and the Service ports all have to move together or the probe silently
+  # checks the wrong port.
+  - it: moves the game port through env, container ports and Service together
+    set:
+      server:
+        gamePort: 7788
+    templates:
+      - deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SERVERGAMEPORT
+            value: "7788"
+      - equal:
+          path: spec.template.spec.containers[0].ports[0]
+          value:
+            name: game-tcp
+            containerPort: 7788
+            protocol: TCP
+      - equal:
+          path: spec.template.spec.containers[0].ports[1]
+          value:
+            name: game-udp
+            containerPort: 7788
+            protocol: UDP
+
+  - it: moves the game port on the Service too
+    set:
+      server:
+        gamePort: 7788
+    templates:
+      - service.yaml
+    asserts:
+      - equal:
+          path: spec.ports[0].port
+          value: 7788
+      - equal:
+          path: spec.ports[1].port
+          value: 7788
+
+  - it: exposes the game port on both protocols by default
+    templates:
+      - service.yaml
+    asserts:
+      - equal:
+          path: spec.ports[0]
+          value:
+            name: game-tcp
+            port: 7777
+            targetPort: game-tcp
+            protocol: TCP
+      - equal:
+          path: spec.ports[1]
+          value:
+            name: game-udp
+            port: 7777
+            targetPort: game-udp
+            protocol: UDP
+      - lengthEqual:
+          path: spec.ports
+          count: 3
+
+  # Required since Satisfactory 1.1. There is deliberately no switch to turn it
+  # off: without it clients reach the server and then fail on the API.
+  - it: always exposes the messaging port
+    templates:
+      - service.yaml
+    asserts:
+      - contains:
+          path: spec.ports
+          content:
+            name: messaging
+            port: 8888
+            targetPort: messaging
+            protocol: TCP
+
+  - it: moves the messaging port when it is changed
+    set:
+      server:
+        messagingPort: 8899
+    templates:
+      - service.yaml
+    asserts:
+      - equal:
+          path: spec.ports[2].port
+          value: 8899
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: messaging
+            containerPort: 8899
+            protocol: TCP
+        template: deployment.yaml
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SERVERMESSAGINGPORT
+            value: "8899"
+        template: deployment.yaml

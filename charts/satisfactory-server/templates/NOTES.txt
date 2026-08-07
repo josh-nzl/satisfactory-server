@@ -1,0 +1,65 @@
+{{ include "satisfactory-server.fullname" . }} has been deployed.
+
+THE FIRST START TAKES A WHILE
+  SteamCMD downloads roughly 15GB of game files before the server can answer
+  anything. Expect the pod to sit un-Ready for 10-30 minutes on a first install,
+  or longer on a slow connection. That is normal, and the startup probe is
+  configured to tolerate it.
+
+  Watch progress with:
+    kubectl --namespace {{ .Release.Namespace }} logs -f \
+      deployment/{{ include "satisfactory-server.fullname" . }}
+
+  If the startup probe gives up before the download finishes, the pod restarts
+  and loses nothing, but you should raise probes.startup.failureThreshold
+  (currently {{ .Values.probes.startup.failureThreshold }} attempts every
+  {{ .Values.probes.startup.periodSeconds }}s).
+
+HOW TO CONNECT
+{{- if eq .Values.service.type "LoadBalancer" }}
+  Get the external address once it is assigned:
+
+    kubectl --namespace {{ .Release.Namespace }} get svc -w \
+      {{ include "satisfactory-server.fullname" . }}
+
+  Then in Satisfactory: Server Manager -> Add Server, using
+  <EXTERNAL-IP>:{{ .Values.server.gamePort }}
+{{- else if eq .Values.service.type "NodePort" }}
+  Find the assigned node port:
+
+    kubectl --namespace {{ .Release.Namespace }} get svc \
+      {{ include "satisfactory-server.fullname" . }} \
+      -o jsonpath='{.spec.ports[?(@.name=="game-tcp")].nodePort}'
+
+  Connect to <ANY-NODE-IP>:<NODE-PORT>. The UDP port must be forwarded too, or
+  the client will find the server but never finish joining.
+{{- else }}
+  The Service is ClusterIP, so it is not reachable from outside the cluster.
+  For a quick test:
+
+    kubectl --namespace {{ .Release.Namespace }} port-forward \
+      svc/{{ include "satisfactory-server.fullname" . }} {{ .Values.server.gamePort }}:{{ .Values.server.gamePort }}
+
+  Note that port-forward only carries TCP. Joining a game needs UDP as well, so
+  use a LoadBalancer or NodePort for anything beyond checking the API responds.
+{{- end }}
+
+CLAIM THE SERVER
+  A fresh server is unclaimed and will not accept a game until someone does so.
+  This cannot be automated from the chart. In the game client, add the server,
+  set an administrator password when prompted, name the server, then create or
+  upload a save.
+
+{{ if not .Values.persistence.config.enabled }}
+WARNING: persistence.config.enabled is false. Saves, blueprints and backups live
+  on an emptyDir and will be destroyed when the pod is replaced.
+{{ end }}
+{{- if and .Values.persistence.gamefiles.enabled (eq .Values.persistence.gamefiles.type "emptyDir") }}
+NOTE: gamefiles are on an emptyDir, so the full game download repeats every time
+  the pod is recreated.
+{{- end }}
+{{- if and .Values.networkPolicy.enabled .Values.networkPolicy.egress.enabled }}
+NOTE: a NetworkPolicy restricts egress. The server contacts Steam on every start
+  to update the game; if that is blocked the container will fail to start. Set
+  server.skipUpdate=true or widen networkPolicy.egress if you see update errors.
+{{- end }}

@@ -1,0 +1,159 @@
+{{- include "satisfactory-server.validate" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "satisfactory-server.fullname" . }}
+  labels:
+    {{- include "satisfactory-server.labels" . | nindent 4 }}
+spec:
+  # A Satisfactory server is a single process owning a single game world on a
+  # ReadWriteOnce volume. Replicas are not a knob.
+  replicas: 1
+  strategy:
+    # Recreate, so the outgoing pod releases the volumes before the new one
+    # tries to claim them. RollingUpdate would deadlock on RWO storage.
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "satisfactory-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "satisfactory-server.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "satisfactory-server.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
+      {{- with .Values.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: satisfactory-server
+          image: {{ include "satisfactory-server.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            # 7777 carries the HTTPS API on TCP and game traffic on UDP. Two
+            # entries, one number, two protocols.
+            - name: game-tcp
+              containerPort: {{ .Values.server.gamePort }}
+              protocol: TCP
+            - name: game-udp
+              containerPort: {{ .Values.server.gamePort }}
+              protocol: UDP
+            - name: messaging
+              containerPort: {{ .Values.server.messagingPort }}
+              protocol: TCP
+          env:
+            {{- include "satisfactory-server.env" . | nindent 12 }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.probes.startup.enabled }}
+          startupProbe:
+            {{- include "satisfactory-server.probe" (dict "probe" .Values.probes.startup) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            {{- include "satisfactory-server.probe" (dict "probe" .Values.probes.liveness) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            {{- include "satisfactory-server.probe" (dict "probe" .Values.probes.readiness) | nindent 12 }}
+          {{- end }}
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            {{- if .Values.persistence.gamefiles.enabled }}
+            # Nested inside /config on purpose: the image expects the game
+            # install at this exact path.
+            - name: gamefiles
+              mountPath: /config/gamefiles
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with .Values.sidecars }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: config
+          {{- if .Values.persistence.config.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "satisfactory-server.configClaimName" . }}
+          {{- else }}
+          # Ephemeral: saves and backups are lost when the pod is replaced.
+          emptyDir: {}
+          {{- end }}
+        {{- if .Values.persistence.gamefiles.enabled }}
+        - name: gamefiles
+          {{- if eq .Values.persistence.gamefiles.type "emptyDir" }}
+          emptyDir:
+            {{- with .Values.persistence.gamefiles.emptyDir.sizeLimit }}
+            sizeLimit: {{ . }}
+            {{- end }}
+          {{- else }}
+          persistentVolumeClaim:
+            claimName: {{ include "satisfactory-server.gamefilesClaimName" . }}
+          {{- end }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

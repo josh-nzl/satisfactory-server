@@ -1,0 +1,4 @@
+# Defaults, with the Service downgraded so the case does not depend on a
+# LoadBalancer implementation being present in the test cluster.
+service:
+  type: ClusterIP

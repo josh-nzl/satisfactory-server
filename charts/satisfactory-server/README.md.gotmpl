@@ -1,0 +1,79 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.deprecationWarning" . }}
+
+{{ template "chart.badgesSection" . }}
+
+{{ template "chart.description" . }}
+
+Runs the community-standard [`wolveix/satisfactory-server`][image] image as a
+single-replica `Deployment` with persistent storage for saves and game files.
+
+[image]: https://github.com/wolveix/satisfactory-server
+
+## Before you install
+
+- **The first start takes 10-30 minutes.** SteamCMD downloads roughly 15GB of
+  game files before the server answers anything. The pod stays un-Ready for the
+  whole of that, which is expected and what the long startup probe is for.
+- **The server needs real memory.** Upstream asks for 8-16GB. The chart requests
+  8GB and limits at 12GB by default.
+- **Three ports, all required.** 7777/TCP (HTTPS API), 7777/UDP (game traffic)
+  and 8888/TCP (messaging, mandatory since Satisfactory 1.1). Forward only TCP
+  and clients find the server but never finish joining; miss 8888 and they hit
+  API connectivity errors.
+- **A new server must be claimed from the game client.** The chart cannot do it.
+
+{{ template "chart.homepageLine" . }}
+
+{{ template "chart.maintainersSection" . }}
+
+{{ template "chart.sourcesSection" . }}
+
+{{ template "chart.requirementsSection" . }}
+
+## Installing
+
+```console
+helm repo add satisfactory https://josh-nzl.github.io/satisfactory-server
+helm install my-server satisfactory/satisfactory-server
+```
+
+Or straight from the OCI registry:
+
+```console
+helm install my-server oci://ghcr.io/josh-nzl/charts/satisfactory-server
+```
+
+## Notes on a few values
+
+### `podSecurityContext.runAsUser`
+
+Only `1000` or `0` are accepted, and anything else fails at render time.
+
+The image's entrypoint fixes volume ownership and drops privileges with `gosu`
+when it runs as root. When it runs as anything else it compares both its UID and
+its GID against the `steam` user built into the image and exits if either
+differs. `PUID` and `PGID` are therefore derived from the security context rather
+than being set independently, so the two cannot drift apart.
+
+Running as root additionally needs `CHOWN`, `SETUID`, `SETGID`, `DAC_OVERRIDE`
+and `FOWNER` added back to the container capabilities -- dropping `ALL` breaks
+the very `chown` the root path exists to perform. See
+[docs/configuration.md](../../docs/configuration.md).
+
+### `persistence`
+
+Two claims by default. `config` holds saves, blueprints, backups and server
+settings and is kept when the release is uninstalled. `gamefiles` holds the
+SteamCMD download, is not kept, and can be an `emptyDir` if you would rather
+re-download than pay for the storage.
+
+### `server.debug`
+
+Not a verbose-logging switch. The entrypoint prints a diagnostic dump and then
+**exits**, so the pod CrashLoops for as long as it is set.
+
+{{ template "chart.valuesSection" . }}
+
+{{ template "helm-docs.versionFooter" . }}

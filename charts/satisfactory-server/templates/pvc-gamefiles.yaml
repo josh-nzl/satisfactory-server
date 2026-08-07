@@ -1,0 +1,32 @@
+{{- if and .Values.persistence.gamefiles.enabled (eq .Values.persistence.gamefiles.type "pvc") (not .Values.persistence.gamefiles.existingClaim) }}
+{{- $annotations := deepCopy .Values.persistence.gamefiles.annotations }}
+{{- if .Values.persistence.gamefiles.retain }}
+{{- $_ := set $annotations "helm.sh/resource-policy" "keep" }}
+{{- end }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "satisfactory-server.gamefilesClaimName" . }}
+  labels:
+    {{- include "satisfactory-server.labels" . | nindent 4 }}
+    {{- with .Values.persistence.gamefiles.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.gamefiles.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.gamefiles.size | quote }}
+  {{- if .Values.persistence.gamefiles.storageClass }}
+  {{- if eq "-" .Values.persistence.gamefiles.storageClass }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.persistence.gamefiles.storageClass | quote }}
+  {{- end }}
+  {{- end }}
+{{- end }}

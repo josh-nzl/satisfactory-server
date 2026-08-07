@@ -1,0 +1,51 @@
+apiVersion: v2
+name: satisfactory-server
+description: A Helm chart for running a Satisfactory dedicated game server on Kubernetes
+type: application
+
+# Chart version. Bumped on every change to the chart itself.
+version: 0.1.0
+
+# Version of the wolveix/satisfactory-server image this chart is tested against,
+# and the default image tag. Note this pins the *container* version, not the game
+# version -- the container updates Satisfactory via SteamCMD on every start
+# unless server.skipUpdate is true.
+appVersion: "v1.9.10"
+
+# The default Service carries TCP and UDP ports on a single LoadBalancer.
+# MixedProtocolLBService reached GA in Kubernetes 1.26; below that the Service is
+# rejected by the API server. See docs/networking.md for the workaround.
+kubeVersion: ">=1.26.0-0"
+
+home: https://github.com/josh-nzl/satisfactory-server
+# Add an `icon:` URL here once docs/icon.png exists -- Artifact Hub renders a
+# broken image rather than a default one if it points at a 404.
+sources:
+  - https://github.com/josh-nzl/satisfactory-server
+  - https://github.com/wolveix/satisfactory-server
+
+keywords:
+  - satisfactory
+  - game-server
+  - gaming
+  - steam
+  - dedicated-server
+
+maintainers:
+  - name: josh-nzl
+    url: https://github.com/josh-nzl
+
+annotations:
+  artifacthub.io/category: gaming
+  artifacthub.io/license: MIT
+  artifacthub.io/images: |
+    - name: satisfactory-server
+      image: wolveix/satisfactory-server:v1.9.10
+  artifacthub.io/links: |
+    - name: Chart source
+      url: https://github.com/josh-nzl/satisfactory-server
+    - name: Upstream container image
+      url: https://github.com/wolveix/satisfactory-server
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial release

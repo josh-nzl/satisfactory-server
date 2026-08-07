@@ -1,0 +1,11 @@
+# Bring your own claims. The chart renders no PersistentVolumeClaim at all and
+# mounts what you point it at -- the migration path from another chart, or from
+# a restored backup.
+service:
+  type: ClusterIP
+
+persistence:
+  config:
+    existingClaim: satisfactory-config
+  gamefiles:
+    existingClaim: satisfactory-gamefiles

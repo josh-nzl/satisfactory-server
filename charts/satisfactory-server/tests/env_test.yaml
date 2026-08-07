@@ -1,0 +1,117 @@
+suite: server environment
+templates:
+  - deployment.yaml
+tests:
+  # Regression: YAML decodes these as float64, and quoting a float64 of 2162688
+  # produces "2.162688e+06", which the server rejects.
+  - it: renders large integers as integers, not scientific notation
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MAXOBJECTS
+            value: "2162688"
+
+  - it: keeps large custom object limits readable
+    set:
+      server:
+        maxObjects: 10000000
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: MAXOBJECTS
+            value: "10000000"
+
+  - it: renders booleans as the strings the entrypoint compares against
+    set:
+      server:
+        skipUpdate: true
+        serverStreaming: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SKIPUPDATE
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SERVERSTREAMING
+            value: "false"
+
+  - it: omits the beta id and key unless they are set
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STEAMBETAID
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STEAMBETAKEY
+          any: true
+
+  - it: renders the beta branch when configured
+    set:
+      server:
+        beta:
+          enabled: true
+          id: experimental
+          key: secret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STEAMBETA
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STEAMBETAID
+            value: "experimental"
+
+  # extraEnv renders last so a duplicate name wins, which is what makes it a
+  # usable escape hatch for variables the image gains before the chart does.
+  - it: appends extraEnv after the generated block
+    set:
+      extraEnv:
+        - name: MAXPLAYERS
+          value: "16"
+        - name: SOMETHING_NEW
+          value: "yes"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[-1]
+          value:
+            name: SOMETHING_NEW
+            value: "yes"
+      - equal:
+          path: spec.template.spec.containers[0].env[-2]
+          value:
+            name: MAXPLAYERS
+            value: "16"
+
+  - it: supports valueFrom entries in extraEnv
+    set:
+      extraEnv:
+        - name: STEAMBETAKEY
+          valueFrom:
+            secretKeyRef:
+              name: beta-secret
+              key: steam-beta-key
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[-1].valueFrom.secretKeyRef.name
+          value: beta-secret
+
+  - it: passes envFrom sources through
+    set:
+      extraEnvFrom:
+        - secretRef:
+            name: satisfactory-extra
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].envFrom[0].secretRef.name
+          value: satisfactory-extra

@@ -1,0 +1,17 @@
+# Helm build output
+*.tgz
+charts/*/charts/
+charts/*/Chart.lock
+.helm-docs/
+
+# helm-unittest leaves these behind on a failed snapshot comparison
+__snapshot__/*.orig
+
+# Local working notes, not part of the published chart
+HANDOVER.md
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

@@ -1,0 +1,141 @@
+suite: security context and PUID/PGID derivation
+templates:
+  - deployment.yaml
+tests:
+  - it: derives PUID and PGID from the security context
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PUID
+            value: "1000"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PGID
+            value: "1000"
+
+  - it: defaults to a non-root context that satisfies the restricted PSS
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1000
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          value: [ALL]
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.seccompProfile.type
+          value: RuntimeDefault
+
+  # The image compares its UID against the steam user built into it and exits if
+  # they differ, so this has to fail at render time rather than at container
+  # start where it is only visible in the pod log.
+  - it: refuses a non-root UID that is not the image's steam user
+    set:
+      podSecurityContext:
+        runAsUser: 1234
+    asserts:
+      - failedTemplate:
+          errorPattern: "runAsUser is 1234, which the wolveix/satisfactory-server image cannot run as"
+
+  # The entrypoint's non-root guard tests the GID too, not just the UID.
+  - it: refuses a non-root GID that is not the image's steam group
+    set:
+      podSecurityContext:
+        runAsUser: 1000
+        runAsGroup: 1234
+    asserts:
+      - failedTemplate:
+          errorPattern: "runAsGroup is 1234"
+
+  - it: refuses runAsUser 0 combined with runAsNonRoot
+    set:
+      podSecurityContext:
+        runAsUser: 0
+        runAsNonRoot: true
+    asserts:
+      - failedTemplate:
+          errorPattern: "runAsNonRoot is true"
+
+  - it: refuses a puid that disagrees with a non-root runAsUser
+    set:
+      puid: 1001
+    asserts:
+      - failedTemplate:
+          errorPattern: "does not match podSecurityContext.runAsUser"
+
+  # 0 is not "unset" here: the image treats PUID/PGID of 0 as a fatal error.
+  - it: refuses a resolved PUID of 0
+    set:
+      podSecurityContext:
+        runAsUser: 0
+        runAsNonRoot: false
+        fsGroup: 0
+    asserts:
+      - failedTemplate:
+          errorPattern: "resolved PUID is 0"
+
+  - it: refuses an explicit puid of 0 rather than silently ignoring it
+    set:
+      podSecurityContext:
+        runAsUser: 0
+        runAsNonRoot: false
+      puid: 0
+    asserts:
+      - failedTemplate:
+          errorPattern: "resolved PUID is 0"
+
+  - it: takes PUID and PGID from fsGroup when running as root
+    set:
+      podSecurityContext:
+        runAsUser: 0
+        runAsNonRoot: false
+        fsGroup: 1500
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 0
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PUID
+            value: "1500"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PGID
+            value: "1500"
+
+  - it: allows explicit puid and pgid overrides when running as root
+    set:
+      podSecurityContext:
+        runAsUser: 0
+        runAsNonRoot: false
+      puid: 2000
+      pgid: 3000
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PUID
+            value: "2000"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PGID
+            value: "3000"
+
+  - it: refuses hostNetwork together with a LoadBalancer Service
+    set:
+      hostNetwork: true
+      service:
+        type: LoadBalancer
+    asserts:
+      - failedTemplate:
+          errorPattern: "hostNetwork is enabled together with service.type LoadBalancer"

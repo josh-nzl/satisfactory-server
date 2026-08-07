@@ -1,0 +1,64 @@
+name: Release chart
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "charts/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # chart-releaser needs the full history to work out what is new.
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      # Publishes to the gh-pages branch and cuts a GitHub Release per chart
+      # version. The gh-pages branch must already exist.
+      - name: Publish to the Helm repository
+        uses: helm/chart-releaser-action@v1
+        with:
+          charts_dir: charts
+        env:
+          CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to GHCR as an OCI artifact
+        run: |
+          # GHCR paths must be lowercase; GitHub owners need not be.
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+          for chart in charts/*/; do
+            helm package "$chart" --destination /tmp/charts
+          done
+
+          for package in /tmp/charts/*.tgz; do
+            # Skip a version that is already published, so re-running this
+            # workflow is not an error.
+            name=$(basename "$package" .tgz)
+            if helm show chart "oci://ghcr.io/${owner}/charts/${name%-*}" \
+                 --version "${name##*-}" >/dev/null 2>&1; then
+              echo "already published: $name"
+              continue
+            fi
+            helm push "$package" "oci://ghcr.io/${owner}/charts"
+          done

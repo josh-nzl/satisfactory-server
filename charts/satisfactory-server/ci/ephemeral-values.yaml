@@ -1,0 +1,16 @@
+# Throwaway server: no persistence at all. Every restart re-downloads the game
+# and loses the save. Useful for testing the chart, not for playing.
+service:
+  type: NodePort
+  nodePorts:
+    gameTcp: 30777
+    gameUdp: 30777
+    messaging: 30888
+
+persistence:
+  config:
+    enabled: false
+  gamefiles:
+    type: emptyDir
+    emptyDir:
+      sizeLimit: 30Gi

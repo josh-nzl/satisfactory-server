@@ -1,0 +1,334 @@
+# Default values for satisfactory-server.
+#
+# Every `server.*` key maps to an environment variable understood by the
+# wolveix/satisfactory-server image. See docs/configuration.md for the mapping.
+
+image:
+  # -- Container image repository.
+  repository: wolveix/satisfactory-server
+  # -- Image tag. Defaults to the chart's appVersion when empty.
+  # Pinning this pins the *container*, not the game -- the container updates
+  # Satisfactory itself on every start unless `server.skipUpdate` is true.
+  tag: ""
+  # -- Image pull policy.
+  pullPolicy: IfNotPresent
+
+# -- Image pull secrets for private registries.
+imagePullSecrets: []
+
+# -- Override the chart name used in resource names.
+nameOverride: ""
+# -- Override the full generated resource name.
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a ServiceAccount for the server pod.
+  create: true
+  # -- Annotations for the ServiceAccount.
+  annotations: {}
+  # -- Name to use. Generated from the fullname template when empty.
+  name: ""
+  # -- Mount the ServiceAccount token in the pod. The game server never talks to
+  # the Kubernetes API, so this is off by default.
+  automountServiceAccountToken: false
+
+server:
+  # -- Maximum number of simultaneous players (`MAXPLAYERS`).
+  maxPlayers: 4
+  # -- Maximum simulation tick rate (`MAXTICKRATE`).
+  maxTickRate: 30
+  # -- Object limit for the save (`MAXOBJECTS`).
+  maxObjects: 2162688
+  # -- Number of rotating autosave files to keep (`AUTOSAVENUM`).
+  autosaveNum: 5
+  # -- Whether the game uses asset streaming (`SERVERSTREAMING`).
+  serverStreaming: true
+  # -- Disable the FICSMAS seasonal event (`DISABLESEASONALEVENTS`).
+  disableSeasonalEvents: false
+  # -- Skip the SteamCMD game update on container start (`SKIPUPDATE`).
+  # Speeds up restarts considerably, at the cost of running a stale game build.
+  skipUpdate: false
+  # -- Client timeout in seconds (`TIMEOUT`).
+  timeout: 30
+  # -- Listening interface (`MULTIHOME`). `::` binds all IPv4 and IPv6 addresses.
+  multihome: "::"
+  # -- One-shot diagnostic dump (`DEBUG`). This is not a verbose logging switch:
+  # the entrypoint prints its environment and host details and then **exits**,
+  # so the pod will CrashLoop for as long as it is set. Turn it on to read the
+  # dump from `kubectl logs`, then turn it off again.
+  debug: false
+  # -- Disable Satisfactory log pruning, keeping every log file (`LOG`).
+  # By default the entrypoint clears old logs on each start.
+  log: false
+  # -- Skip the CPU model check (`VMOVERRIDE`). The entrypoint refuses to start
+  # when the CPU reports itself as `Common KVM processor` or anything containing
+  # `QEMU`, because Satisfactory crashes on those. If your nodes are VMs, the
+  # real fix is to pass a proper CPU model through from the hypervisor; this
+  # value is the override for when you cannot.
+  vmOverride: false
+  # -- Game port, used for both TCP (HTTPS API) and UDP (game traffic)
+  # (`SERVERGAMEPORT`).
+  gamePort: 7777
+  # -- Messaging port (`SERVERMESSAGINGPORT`). Required since Satisfactory 1.1:
+  # all three ports must be reachable or clients hit API connectivity errors.
+  messagingPort: 8888
+  beta:
+    # -- Run the experimental game branch (`STEAMBETA`).
+    enabled: false
+    # -- Custom Steam beta branch name (`STEAMBETAID`). Only for testing.
+    id: ""
+    # -- Password for the Steam beta branch (`STEAMBETAKEY`).
+    # Prefer `extraEnvFrom` with a Secret over putting this in values.
+    key: ""
+
+# -- Additional environment variables, in raw Kubernetes `env` form. Rendered
+# after the `server.*` block, so an entry here overrides the generated value.
+# Use this for any variable the image gains before the chart catches up.
+extraEnv: []
+#  - name: SERVERSTREAMING
+#    value: "false"
+#  - name: STEAMBETAKEY
+#    valueFrom:
+#      secretKeyRef:
+#        name: satisfactory-beta
+#        key: steam-beta-key
+
+# -- Additional environment sources (`envFrom`), for pulling whole ConfigMaps or
+# Secrets into the container environment.
+extraEnvFrom: []
+
+service:
+  # -- Service type. `LoadBalancer` is the only type that gives players a stable
+  # externally routable address without extra plumbing.
+  type: LoadBalancer
+  # -- Annotations for the Service. This is where LoadBalancer implementations
+  # take their configuration (address pools, shared IPs, health check settings).
+  annotations: {}
+  # -- Extra labels for the Service.
+  labels: {}
+  # -- Request a specific LoadBalancer address. Deprecated upstream in Kubernetes;
+  # most implementations prefer an annotation. Only rendered when non-empty.
+  loadBalancerIP: ""
+  # -- LoadBalancer class, when more than one implementation runs in the cluster.
+  loadBalancerClass: ""
+  # -- Restrict which source CIDRs the LoadBalancer accepts traffic from.
+  loadBalancerSourceRanges: []
+  # -- `Cluster` or `Local`. `Local` preserves the client source address and
+  # avoids an extra hop, but only routes to nodes actually running the pod.
+  externalTrafficPolicy: Cluster
+  # -- `SingleStack`, `PreferDualStack` or `RequireDualStack`. Left to the cluster
+  # default when empty. The server binds `::` by default, so it can serve both.
+  ipFamilyPolicy: ""
+  # -- Explicit IP families for the Service.
+  ipFamilies: []
+  # -- Additional external IPs to attach to the Service.
+  externalIPs: []
+  # -- Fixed node ports, used only when `service.type` is `NodePort`.
+  nodePorts:
+    gameTcp: ""
+    gameUdp: ""
+    messaging: ""
+  # -- Additional Service ports, in raw Kubernetes form. Useful for mods.
+  extraPorts: []
+
+persistence:
+  # Two claims, deliberately. `config` holds everything you would be upset to
+  # lose; `gamefiles` holds the SteamCMD download, which can always be refetched.
+  config:
+    # -- Persist `/config` (saves, blueprints, backups, logs, server settings).
+    enabled: true
+    # -- Use an existing PersistentVolumeClaim instead of creating one.
+    existingClaim: ""
+    # -- StorageClass for the claim. Empty uses the cluster default; `-` disables
+    # dynamic provisioning entirely.
+    storageClass: ""
+    # -- Access modes for the claim.
+    accessModes:
+      - ReadWriteOnce
+    # -- Size of the claim. Saves and backups are small; this is generous.
+    size: 5Gi
+    # -- Extra annotations for the claim.
+    annotations: {}
+    # -- Extra labels for the claim.
+    labels: {}
+    # -- Keep the claim when the release is uninstalled. On by default, because
+    # deleting this claim destroys your saves.
+    retain: true
+  gamefiles:
+    # -- Give the game installation its own volume at `/config/gamefiles`. When
+    # disabled, the game files live inside the `config` volume instead.
+    enabled: true
+    # -- `pvc` or `emptyDir`. `emptyDir` re-downloads roughly 15GB on every pod
+    # start, so only use it where the node has fast, cheap local storage.
+    type: pvc
+    # -- Use an existing PersistentVolumeClaim instead of creating one.
+    existingClaim: ""
+    # -- StorageClass for the claim. This volume is disposable, so cheaper or
+    # slower storage is a reasonable choice.
+    storageClass: ""
+    # -- Access modes for the claim.
+    accessModes:
+      - ReadWriteOnce
+    # -- Size of the claim. The install is 15GB+ and grows with each game update.
+    size: 25Gi
+    # -- Extra annotations for the claim.
+    annotations: {}
+    # -- Extra labels for the claim.
+    labels: {}
+    # -- Keep the claim when the release is uninstalled. Off by default: the
+    # contents are re-downloadable.
+    retain: false
+    emptyDir:
+      # -- Size limit when `type` is `emptyDir`.
+      sizeLimit: ""
+
+# -- Pod-level security context.
+# `runAsUser` and `runAsGroup` must both be 1000 (the `steam` user and group
+# baked into the image) or `runAsUser` must be 0. The image's entrypoint only
+# fixes volume ownership when it runs as root; as a non-root user it compares
+# both its UID *and* its GID against the built-in steam user and exits if either
+# differs. Anything else is rejected at render time rather than left to
+# CrashLoop.
+# Non-root relies on the CSI driver honouring `fsGroup` to make the volumes
+# writable -- the entrypoint checks `/config` is writable and exits if it is
+# not. See docs/troubleshooting.md if you hit permission errors.
+podSecurityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+
+# -- Container-level security context. The defaults satisfy the `restricted` Pod
+# Security Standard. Running as root additionally needs CHOWN, SETUID, SETGID,
+# DAC_OVERRIDE and FOWNER added back -- see docs/configuration.md.
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  # SteamCMD writes outside /config, so the root filesystem cannot be read-only.
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Override `PUID`. Derived from `podSecurityContext.runAsUser` when empty,
+# which is what keeps the environment and the security context from disagreeing.
+# Only set this when running as root, where the two legitimately differ.
+puid: ""
+# -- Override `PGID`. Derived from `podSecurityContext.runAsGroup` when empty.
+pgid: ""
+
+# -- Resource requests and limits. Upstream recommends 8-16GB of RAM; a busy
+# factory will use all of it. There is deliberately no CPU limit by default:
+# throttling the simulation tick loop degrades the game for everyone connected.
+resources:
+  requests:
+    cpu: 2
+    memory: 8Gi
+  limits:
+    memory: 12Gi
+
+probes:
+  # All three probes run the image's own healthcheck, which POSTs a HealthCheck
+  # call to the server's HTTPS API on the game port.
+  startup:
+    # -- Enable the startup probe. This is what tolerates the very slow first
+    # boot, where SteamCMD downloads the game before the server can answer.
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 10
+    # -- 120 failures at 15s is a 30 minute budget for the first start. Raise it
+    # on a slow connection; the pod is killed and restarted if it is exceeded.
+    failureThreshold: 120
+    successThreshold: 1
+  liveness:
+    # -- Enable the liveness probe.
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 4
+    successThreshold: 1
+  readiness:
+    # -- Enable the readiness probe. Keeps the pod out of the Service endpoints
+    # until the game API actually answers.
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 3
+    successThreshold: 1
+
+networkPolicy:
+  # -- Create a NetworkPolicy for the server pod.
+  enabled: false
+  # -- Source CIDRs allowed to reach the game ports. A public game server needs
+  # to be publicly reachable; narrow this for a friends-only or LAN server.
+  allowedSourceRanges:
+    - 0.0.0.0/0
+  egress:
+    # -- Manage egress as well as ingress. Disabling this leaves egress
+    # unrestricted, which is safer than getting it wrong: the server must reach
+    # Steam on every start or the game update fails and the container exits.
+    enabled: true
+    # -- Allow DNS to the cluster resolver.
+    allowDNS: true
+    # -- Destination CIDRs the server may reach, with private ranges excluded so
+    # a compromised game server cannot pivot into the rest of the network.
+    allowedDestinations:
+      - 0.0.0.0/0
+    exceptDestinations:
+      - 10.0.0.0/8
+      - 172.16.0.0/12
+      - 192.168.0.0/16
+      - 169.254.0.0/16
+  # -- Additional ingress rules, in raw NetworkPolicy form.
+  extraIngress: []
+  # -- Additional egress rules, in raw NetworkPolicy form.
+  extraEgress: []
+
+# -- Annotations for the server pod.
+podAnnotations: {}
+# -- Extra labels for the server pod.
+podLabels: {}
+# -- Node selector for the server pod.
+nodeSelector: {}
+# -- Tolerations for the server pod.
+tolerations: []
+# -- Affinity rules for the server pod. Worth setting if only some nodes have
+# the memory and CPU for a game server.
+affinity: {}
+# -- Topology spread constraints for the server pod.
+topologySpreadConstraints: []
+# -- PriorityClass for the server pod.
+priorityClassName: ""
+# -- Grace period for shutdown. Kubernetes sends SIGTERM here; see
+# docs/troubleshooting.md for how the server handles it and the `lifecycle`
+# hook below if you want to force a SIGINT instead.
+terminationGracePeriodSeconds: 60
+# -- Run the pod on the host network. Sidesteps the Service entirely; the ports
+# are then claimed directly on the node.
+hostNetwork: false
+# -- DNS policy. Set to `ClusterFirstWithHostNet` when `hostNetwork` is true.
+dnsPolicy: ""
+# -- DNS config for the pod.
+dnsConfig: {}
+# -- Container lifecycle hooks.
+lifecycle: {}
+#  preStop:
+#    exec:
+#      command: ["/bin/sh", "-c", "kill -INT 1; sleep 30"]
+
+# -- Init containers for the server pod.
+initContainers: []
+# -- Additional containers to run alongside the server.
+sidecars: []
+# -- Additional volumes for the pod.
+extraVolumes: []
+# -- Additional volume mounts for the server container.
+extraVolumeMounts: []
+# -- Arbitrary extra manifests to render with the release. Strings are passed
+# through `tpl`, so they can reference chart values.
+extraObjects: []

@@ -1,0 +1,118 @@
+suite: service
+templates:
+  - service.yaml
+tests:
+  - it: defaults to a LoadBalancer
+    asserts:
+      - equal:
+          path: spec.type
+          value: LoadBalancer
+      - equal:
+          path: spec.externalTrafficPolicy
+          value: Cluster
+
+  - it: targets the container ports by name
+    asserts:
+      - equal:
+          path: spec.ports[0].targetPort
+          value: game-tcp
+      - equal:
+          path: spec.ports[1].targetPort
+          value: game-udp
+
+  - it: passes LoadBalancer configuration through
+    set:
+      service:
+        annotations:
+          example.com/address-pool: games
+        loadBalancerSourceRanges:
+          - 203.0.113.0/24
+    asserts:
+      - equal:
+          path: metadata.annotations["example.com/address-pool"]
+          value: games
+      - equal:
+          path: spec.loadBalancerSourceRanges
+          value:
+            - 203.0.113.0/24
+
+  # LoadBalancer-only fields must not leak onto other Service types.
+  - it: omits LoadBalancer fields on a ClusterIP Service
+    set:
+      service:
+        type: ClusterIP
+        loadBalancerIP: 203.0.113.10
+        loadBalancerSourceRanges:
+          - 203.0.113.0/24
+    asserts:
+      - isNull:
+          path: spec.loadBalancerIP
+      - isNull:
+          path: spec.loadBalancerSourceRanges
+      - isNull:
+          path: spec.externalTrafficPolicy
+
+  - it: assigns fixed node ports only for a NodePort Service
+    set:
+      service:
+        type: NodePort
+        nodePorts:
+          gameTcp: 30777
+          gameUdp: 30777
+          messaging: 30888
+    asserts:
+      - equal:
+          path: spec.ports[0].nodePort
+          value: 30777
+      - equal:
+          path: spec.ports[1].nodePort
+          value: 30777
+      - equal:
+          path: spec.ports[2].nodePort
+          value: 30888
+
+  - it: ignores node port values on a LoadBalancer Service
+    set:
+      service:
+        nodePorts:
+          gameTcp: 30777
+    asserts:
+      - isNull:
+          path: spec.ports[0].nodePort
+
+  - it: supports dual stack
+    set:
+      service:
+        ipFamilyPolicy: PreferDualStack
+        ipFamilies:
+          - IPv4
+          - IPv6
+    asserts:
+      - equal:
+          path: spec.ipFamilyPolicy
+          value: PreferDualStack
+      - equal:
+          path: spec.ipFamilies
+          value: [IPv4, IPv6]
+
+  - it: appends extra ports for mods
+    set:
+      service:
+        extraPorts:
+          - name: mod-api
+            port: 9000
+            targetPort: 9000
+            protocol: TCP
+    asserts:
+      - lengthEqual:
+          path: spec.ports
+          count: 4
+      - equal:
+          path: spec.ports[3].name
+          value: mod-api
+
+  - it: selects the server pod
+    asserts:
+      - equal:
+          path: spec.selector["app.kubernetes.io/name"]
+          value: satisfactory-server

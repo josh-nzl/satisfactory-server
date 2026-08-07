@@ -1,0 +1,13 @@
+# Artifact Hub repository metadata.
+#
+# Fill in `repositoryID` with the ID Artifact Hub shows after you add this
+# repository at https://artifacthub.io/control-panel/repositories, then commit
+# it. Until then the repository can still be listed, it just isn't verified.
+repositoryID: ""
+
+# Optional, and only needed to claim ownership of the listing. The email must
+# match the Artifact Hub account exactly, and this file is public -- uncomment
+# it only if you are happy for that address to be published.
+# owners:
+#   - name: josh-nzl
+#     email: you@example.com

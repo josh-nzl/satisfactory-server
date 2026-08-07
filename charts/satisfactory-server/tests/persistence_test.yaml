@@ -1,0 +1,189 @@
+suite: persistence
+tests:
+  - it: creates both claims by default
+    templates:
+      - pvc-config.yaml
+      - pvc-gamefiles.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: sizes the claims independently
+    templates:
+      - pvc-config.yaml
+    asserts:
+      - equal:
+          path: spec.resources.requests.storage
+          value: 5Gi
+
+  # The saves claim outlives the release; the game files claim does not.
+  - it: retains the config claim but not the gamefiles claim
+    templates:
+      - pvc-config.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+
+  - it: leaves no dangling annotations key on the gamefiles claim
+    templates:
+      - pvc-gamefiles.yaml
+    asserts:
+      - isNull:
+          path: metadata.annotations
+
+  - it: retains the gamefiles claim when asked
+    set:
+      persistence:
+        gamefiles:
+          retain: true
+    templates:
+      - pvc-gamefiles.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+
+  - it: merges user annotations with the retention policy
+    set:
+      persistence:
+        config:
+          annotations:
+            example.com/backup: "daily"
+    templates:
+      - pvc-config.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["example.com/backup"]
+          value: daily
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+
+  - it: omits storageClassName entirely when unset
+    templates:
+      - pvc-config.yaml
+    asserts:
+      - isNull:
+          path: spec.storageClassName
+
+  - it: renders an empty storageClassName for the "-" idiom
+    set:
+      persistence:
+        config:
+          storageClass: "-"
+    templates:
+      - pvc-config.yaml
+    asserts:
+      - equal:
+          path: spec.storageClassName
+          value: ""
+
+  - it: creates no claims when existing ones are supplied
+    set:
+      persistence:
+        config:
+          existingClaim: my-config
+        gamefiles:
+          existingClaim: my-gamefiles
+    templates:
+      - pvc-config.yaml
+      - pvc-gamefiles.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: mounts the supplied existing claims
+    set:
+      persistence:
+        config:
+          existingClaim: my-config
+        gamefiles:
+          existingClaim: my-gamefiles
+    templates:
+      - deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].persistentVolumeClaim.claimName
+          value: my-config
+      - equal:
+          path: spec.template.spec.volumes[1].persistentVolumeClaim.claimName
+          value: my-gamefiles
+
+  # The image expects the game install at this exact path, nested inside /config.
+  - it: mounts gamefiles inside the config volume
+    templates:
+      - deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0].mountPath
+          value: /config
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[1].mountPath
+          value: /config/gamefiles
+
+  - it: swaps the gamefiles volume for an emptyDir on request
+    set:
+      persistence:
+        gamefiles:
+          type: emptyDir
+          emptyDir:
+            sizeLimit: 30Gi
+    templates:
+      - deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[1].emptyDir.sizeLimit
+          value: 30Gi
+      - isNull:
+          path: spec.template.spec.volumes[1].persistentVolumeClaim
+
+  - it: creates no gamefiles claim when it is an emptyDir
+    set:
+      persistence:
+        gamefiles:
+          type: emptyDir
+    templates:
+      - pvc-gamefiles.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: folds gamefiles into the config volume when disabled
+    set:
+      persistence:
+        gamefiles:
+          enabled: false
+    templates:
+      - deployment.yaml
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 1
+      - lengthEqual:
+          path: spec.template.spec.containers[0].volumeMounts
+          count: 1
+
+  - it: falls back to an emptyDir when persistence is disabled entirely
+    set:
+      persistence:
+        config:
+          enabled: false
+    templates:
+      - deployment.yaml
+    asserts:
+      - isNotNull:
+          path: spec.template.spec.volumes[0].emptyDir
+
+  # RollingUpdate would deadlock waiting for the outgoing pod to release a
+  # ReadWriteOnce volume it only releases once it has terminated.
+  - it: uses the Recreate strategy so RWO volumes are released first
+    templates:
+      - deployment.yaml
+    asserts:
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - equal:
+          path: spec.replicas
+          value: 1

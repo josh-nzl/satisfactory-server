@@ -1,0 +1,17 @@
+repos:
+  - repo: https://github.com/norwoodj/helm-docs
+    rev: v1.14.2
+    hooks:
+      - id: helm-docs
+        args:
+          - --chart-search-root=charts
+          - --template-files=README.md.gotmpl
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+        # Helm templates are Go templates, not YAML.
+        exclude: ^charts/.*/templates/

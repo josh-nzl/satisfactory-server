@@ -1,0 +1,137 @@
+suite: network policy
+templates:
+  - networkpolicy.yaml
+tests:
+  - it: renders nothing by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: allows the game ports on both protocols when enabled
+    set:
+      networkPolicy:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.ingress[0].ports
+          content:
+            port: 7777
+            protocol: TCP
+      - contains:
+          path: spec.ingress[0].ports
+          content:
+            port: 7777
+            protocol: UDP
+      - contains:
+          path: spec.ingress[0].ports
+          content:
+            port: 8888
+            protocol: TCP
+
+  - it: follows a changed game port
+    set:
+      networkPolicy:
+        enabled: true
+      server:
+        gamePort: 7788
+    asserts:
+      - contains:
+          path: spec.ingress[0].ports
+          content:
+            port: 7788
+            protocol: UDP
+
+  - it: allows all three required ports and nothing else
+    set:
+      networkPolicy:
+        enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.ingress[0].ports
+          count: 3
+
+  - it: narrows the allowed source ranges
+    set:
+      networkPolicy:
+        enabled: true
+        allowedSourceRanges:
+          - 203.0.113.0/24
+          - 198.51.100.0/24
+    asserts:
+      - equal:
+          path: spec.ingress[0].from
+          value:
+            - ipBlock:
+                cidr: 203.0.113.0/24
+            - ipBlock:
+                cidr: 198.51.100.0/24
+
+  # The server contacts Steam on every start; blocking that does not degrade
+  # gracefully, the container exits.
+  - it: leaves egress unmanaged when egress is disabled
+    set:
+      networkPolicy:
+        enabled: true
+        egress:
+          enabled: false
+    asserts:
+      - equal:
+          path: spec.policyTypes
+          value: [Ingress]
+      - isNull:
+          path: spec.egress
+
+  - it: allows DNS and internet egress while excluding private ranges
+    set:
+      networkPolicy:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.policyTypes
+          value: [Ingress, Egress]
+      - contains:
+          path: spec.egress[0].ports
+          content:
+            port: 53
+            protocol: UDP
+      - equal:
+          path: spec.egress[1].to[0].ipBlock.cidr
+          value: 0.0.0.0/0
+      - contains:
+          path: spec.egress[1].to[0].ipBlock.except
+          content: 10.0.0.0/8
+
+  - it: drops the DNS rule when asked
+    set:
+      networkPolicy:
+        enabled: true
+        egress:
+          allowDNS: false
+    asserts:
+      - lengthEqual:
+          path: spec.egress
+          count: 1
+
+  - it: appends extra rules
+    set:
+      networkPolicy:
+        enabled: true
+        extraIngress:
+          - from:
+              - podSelector:
+                  matchLabels:
+                    app: monitoring
+        extraEgress:
+          - to:
+              - podSelector:
+                  matchLabels:
+                    app: backup
+    asserts:
+      - lengthEqual:
+          path: spec.ingress
+          count: 2
+      - lengthEqual:
+          path: spec.egress
+          count: 3
