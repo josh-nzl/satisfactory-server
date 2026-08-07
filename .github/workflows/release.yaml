@@ -39,6 +39,20 @@ jobs:
         env:
           CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Artifact Hub reads this from the same directory as index.yaml, which is
+      # the root of gh-pages -- not the root of this branch. main stays the
+      # source of truth; this mirrors it after chart-releaser has pushed.
+      - name: Publish the Artifact Hub metadata alongside the index
+        run: |
+          git fetch origin gh-pages
+          git worktree add --detach /tmp/pages FETCH_HEAD
+          cp artifacthub-repo.yml /tmp/pages/
+          git -C /tmp/pages add artifacthub-repo.yml
+          if ! git -C /tmp/pages diff --cached --quiet; then
+            git -C /tmp/pages commit -m "Sync Artifact Hub metadata"
+            git -C /tmp/pages push origin HEAD:gh-pages
+          fi
+
       - name: Publish to GHCR as an OCI artifact
         run: |
           # GHCR paths must be lowercase; GitHub owners need not be.
