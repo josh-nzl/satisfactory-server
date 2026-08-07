@@ -1,11 +1,9 @@
 name: Lint and test
 
 on:
+  # Deliberately unfiltered. These jobs are required status checks, and a check
+  # that never reports blocks a merge rather than passing it.
   pull_request:
-    paths:
-      - "charts/**"
-      - ".github/workflows/lint-test.yaml"
-      - ".github/ct.yaml"
   push:
     branches:
       - main
