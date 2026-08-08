@@ -4,7 +4,7 @@ description: A Helm chart for running a Satisfactory dedicated game server on Ku
 type: application
 
 # Chart version. Bumped on every change to the chart itself.
-version: 0.1.5
+version: 0.1.6
 
 # Version of the wolveix/satisfactory-server image this chart is tested against,
 # and the default image tag. Note this pins the *container* version, not the game
@@ -18,8 +18,7 @@ appVersion: "v1.9.10"
 kubeVersion: ">=1.26.0-0"
 
 home: https://github.com/josh-nzl/satisfactory-server
-# Add an `icon:` URL here once docs/icon.png exists -- Artifact Hub renders a
-# broken image rather than a default one if it points at a 404.
+icon: https://raw.githubusercontent.com/josh-nzl/satisfactory-server/main/docs/icon.png
 sources:
   - https://github.com/josh-nzl/satisfactory-server
   - https://github.com/wolveix/satisfactory-server
@@ -52,4 +51,4 @@ annotations:
       url: https://github.com/wolveix/satisfactory-server
   artifacthub.io/changes: |
     - kind: added
-      description: Serve the HTTPS API with your own certificate, via tls.existingSecret
+      description: Chart icon
