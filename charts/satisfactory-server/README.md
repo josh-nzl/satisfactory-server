@@ -1,6 +1,6 @@
 # satisfactory-server
 
-![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.9.10](https://img.shields.io/badge/AppVersion-v1.9.10-informational?style=flat-square)
+![Version: 0.1.1](https://img.shields.io/badge/Version-0.1.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.9.10](https://img.shields.io/badge/AppVersion-v1.9.10-informational?style=flat-square)
 
 A Helm chart for running a Satisfactory dedicated game server on Kubernetes
 
@@ -11,7 +11,7 @@ single-replica `Deployment` with persistent storage for saves and game files.
 
 ## Before you install
 
-- **The first start takes 10-30 minutes.** SteamCMD downloads roughly 15GB of
+- **The first start takes a while.** SteamCMD installs the game, about 3GB of
   game files before the server answers anything. The pod stays un-Ready for the
   whole of that, which is expected and what the long startup probe is for.
 - **The server needs real memory.** Upstream asks for 8-16GB. The chart requests
@@ -130,9 +130,9 @@ Not a verbose-logging switch. The entrypoint prints a diagnostic dump and then
 | persistence.gamefiles.existingClaim | string | `""` | Use an existing PersistentVolumeClaim instead of creating one. |
 | persistence.gamefiles.labels | object | `{}` | Extra labels for the claim. |
 | persistence.gamefiles.retain | bool | `false` | Keep the claim when the release is uninstalled. Off by default: the contents are re-downloadable. |
-| persistence.gamefiles.size | string | `"25Gi"` | Size of the claim. The install is 15GB+ and grows with each game update. |
+| persistence.gamefiles.size | string | `"25Gi"` | Size of the claim. The install is around 3GB today; the default leaves room for it to grow with future game updates. |
 | persistence.gamefiles.storageClass | string | `""` | StorageClass for the claim. This volume is disposable, so cheaper or slower storage is a reasonable choice. |
-| persistence.gamefiles.type | string | `"pvc"` | `pvc` or `emptyDir`. `emptyDir` re-downloads roughly 15GB on every pod start, so only use it where the node has fast, cheap local storage. |
+| persistence.gamefiles.type | string | `"pvc"` | `pvc` or `emptyDir`. `emptyDir` re-downloads the whole game (about 3GB) on every pod start, so only use it where the node has fast, cheap local storage. |
 | pgid | string | `""` | Override `PGID`. Derived from `podSecurityContext.runAsGroup` when empty. |
 | podAnnotations | object | `{}` | Annotations for the server pod. |
 | podLabels | object | `{}` | Extra labels for the server pod. |

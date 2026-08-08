@@ -13,7 +13,7 @@ single-replica `Deployment` with persistent storage for saves and game files.
 
 ## Before you install
 
-- **The first start takes 10-30 minutes.** SteamCMD downloads roughly 15GB of
+- **The first start takes a while.** SteamCMD installs the game, about 3GB of
   game files before the server answers anything. The pod stays un-Ready for the
   whole of that, which is expected and what the long startup probe is for.
 - **The server needs real memory.** Upstream asks for 8-16GB. The chart requests

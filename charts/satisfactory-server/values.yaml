@@ -158,8 +158,9 @@ persistence:
     # -- Give the game installation its own volume at `/config/gamefiles`. When
     # disabled, the game files live inside the `config` volume instead.
     enabled: true
-    # -- `pvc` or `emptyDir`. `emptyDir` re-downloads roughly 15GB on every pod
-    # start, so only use it where the node has fast, cheap local storage.
+    # -- `pvc` or `emptyDir`. `emptyDir` re-downloads the whole game (about
+    # 3GB) on every pod start, so only use it where the node has fast, cheap
+    # local storage.
     type: pvc
     # -- Use an existing PersistentVolumeClaim instead of creating one.
     existingClaim: ""
@@ -169,7 +170,8 @@ persistence:
     # -- Access modes for the claim.
     accessModes:
       - ReadWriteOnce
-    # -- Size of the claim. The install is 15GB+ and grows with each game update.
+    # -- Size of the claim. The install is around 3GB today; the default leaves
+    # room for it to grow with future game updates.
     size: 25Gi
     # -- Extra annotations for the claim.
     annotations: {}

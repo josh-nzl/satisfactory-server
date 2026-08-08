@@ -10,7 +10,7 @@
 The split exists because the two have nothing in common. `config` is small,
 irreplaceable, and worth snapshotting often. `gamefiles` is large, grows with
 every game update, and can always be re-downloaded. Keeping them apart means
-your snapshot schedule is not dragging 15GB of re-downloadable game files
+your snapshot schedule is not dragging gigabytes of re-downloadable game files
 around, and it lets the bulk sit on cheaper storage.
 
 ```yaml
@@ -29,8 +29,8 @@ them in order.
 
 ### Sizing
 
-`gamefiles` needs 15GB or so today and grows with each game update — 25Gi gives
-some headroom. `config` holds saves measured in tens of megabytes plus
+`gamefiles` holds an install of about 3GB today, and grows with each game
+update — 25Gi gives plenty of headroom and costs nothing to leave large. `config` holds saves measured in tens of megabytes plus
 `server.autosaveNum` rotating autosaves and the image's own backups; 5Gi is
 already generous, but a long-running world with a big autosave count can grow.
 
@@ -56,8 +56,8 @@ persistence:
       sizeLimit: 30Gi
 ```
 
-The full ~15GB download repeats on every pod start, which turns a 30-second
-restart into a 20-minute one. Only sensible where node-local storage is fast and
+The full download repeats on every pod start, which turns a fast restart into
+a slow one. Only sensible where node-local storage is fast and
 the pod rarely moves.
 
 ## Backups

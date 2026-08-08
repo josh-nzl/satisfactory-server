@@ -12,8 +12,8 @@ on:
 
 # There is deliberately no `ct install` job here.
 #
-# Installing this chart for real means SteamCMD pulling roughly 15GB of game
-# files into a pod that wants 8GB of RAM. A GitHub-hosted runner cannot do that,
+# Installing this chart for real means SteamCMD pulling the game files into a
+# pod that wants 8GB of RAM. A GitHub-hosted runner cannot do that,
 # and a job that always timed out would be worse than no job at all: it would
 # read as coverage that does not exist. Rendering plus schema validation is the
 # honest limit of what CI can prove here. The live checks are in the repository

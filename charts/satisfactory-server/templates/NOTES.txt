@@ -1,19 +1,27 @@
 {{ include "satisfactory-server.fullname" . }} has been deployed.
 
 THE FIRST START TAKES A WHILE
-  SteamCMD downloads roughly 15GB of game files before the server can answer
-  anything. Expect the pod to sit un-Ready for 10-30 minutes on a first install,
-  or longer on a slow connection. That is normal, and the startup probe is
-  configured to tolerate it.
+  SteamCMD installs the game -- about 3GB on disk -- before the server can
+  answer anything, and the pod stays un-Ready throughout. How long that takes
+  depends on your connection. The startup probe allows {{ mul .Values.probes.startup.failureThreshold .Values.probes.startup.periodSeconds | div 60 }} minutes for it.
+
+  Some restarts during the first install are expected: SteamCMD intermittently
+  fails with "Missing configuration" and exits 8. Each restart resumes the
+  download. Only worry if it is still looping after several attempts.
 
   Watch progress with:
     kubectl --namespace {{ .Release.Namespace }} logs -f \
       deployment/{{ include "satisfactory-server.fullname" . }}
 
-  If the startup probe gives up before the download finishes, the pod restarts
+{{- if .Values.persistence.gamefiles.enabled }}
+
+  You can ignore the "Checking available storage" warning during this. It
+  measures /config, but the game installs into the separate gamefiles volume.
+{{- end }}
+
+  If the startup probe gives up before the install finishes, the pod restarts
   and loses nothing, but you should raise probes.startup.failureThreshold
-  (currently {{ .Values.probes.startup.failureThreshold }} attempts every
-  {{ .Values.probes.startup.periodSeconds }}s).
+  (currently {{ .Values.probes.startup.failureThreshold }} attempts, every {{ .Values.probes.startup.periodSeconds }}s).
 
 HOW TO CONNECT
 {{- if eq .Values.service.type "LoadBalancer" }}
