@@ -4,7 +4,7 @@ description: A Helm chart for running a Satisfactory dedicated game server on Ku
 type: application
 
 # Chart version. Bumped on every change to the chart itself.
-version: 0.1.3
+version: 0.1.4
 
 # Version of the wolveix/satisfactory-server image this chart is tested against,
 # and the default image tag. Note this pins the *container* version, not the game
@@ -33,6 +33,7 @@ keywords:
 
 maintainers:
   - name: josh-nzl
+    email: josh@segfault.nz
     url: https://github.com/josh-nzl
 
 annotations:
@@ -51,4 +52,4 @@ annotations:
       url: https://github.com/wolveix/satisfactory-server
   artifacthub.io/changes: |
     - kind: fixed
-      description: Use a valid Artifact Hub category, so the package can be indexed
+      description: Give the maintainer an email, so Artifact Hub lists one at all
