@@ -87,18 +87,36 @@ placeholder for whatever yours calls it.
 
 ## NodePort
 
+**Read this before choosing NodePort.** The game does not support port
+redirection on 7777: the port a player connects to must be the port the server
+is listening on. A node port of 30777 forwarding to 7777 does not work — the
+server is reachable but joining never completes, exactly like a missing UDP
+port.
+
+Kubernetes allocates node ports from 30000-32767 by default, so 7777 is not in
+range. NodePort is therefore only usable if you control the API server and can
+widen that range to include it:
+
+```
+--service-node-port-range=7000-32767
+```
+
+With that in place:
+
 ```yaml
 service:
   type: NodePort
   nodePorts:
-    gameTcp: 30777
-    gameUdp: 30777
-    messaging: 30888
+    gameTcp: 7777
+    gameUdp: 7777
+    messaging: 8888
 ```
 
-Players connect to any node's address on the node port. Fixed node ports keep
-the address stable across reinstalls, which matters when you have told people
-where to connect. Both the TCP and UDP node ports need forwarding at the router.
+Players then connect to any node's address on 7777. Both the TCP and UDP node
+ports need forwarding at the router.
+
+If you cannot change the node port range, use `LoadBalancer` or `hostNetwork`
+instead. Neither remaps the port, which is the point.
 
 ## Host network
 

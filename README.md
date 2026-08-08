@@ -15,7 +15,7 @@ becoming a pod that CrashLoops with an error only visible in the container log.
 |---|---|
 | Kubernetes | 1.26 or newer |
 | Memory | 8GB minimum, 8-16GB recommended |
-| Storage | ~30GB across two claims |
+| Storage | ~15GB across two claims |
 | CPU | A CPU the game recognises; see [troubleshooting](docs/troubleshooting.md) if your nodes are VMs |
 
 The 1.26 floor comes from the default Service, which carries TCP and UDP on a
@@ -35,9 +35,10 @@ Or from the OCI registry:
 helm install my-server oci://ghcr.io/josh-nzl/charts/satisfactory-server
 ```
 
-> **The first start takes 10-30 minutes.** SteamCMD downloads roughly 15GB of
-> game files before the server responds to anything, and the pod stays un-Ready
-> for the whole of that. This is normal. Watch it with
+> **The first start takes a while.** SteamCMD installs the game — about 3GB on
+> disk — before the server responds to anything, and the pod stays un-Ready for
+> the whole of that. A few restarts during a first install are expected; see
+> [docs/troubleshooting.md](docs/troubleshooting.md). Watch it with
 > `kubectl logs -f deployment/my-server-satisfactory-server`.
 
 Once the pod is Ready, add the server in the game client and claim it — a fresh
@@ -98,9 +99,9 @@ there, then regenerate with `helm-docs`. CI fails on a stale README.
 ### Verifying a release
 
 CI lints, unit-tests and schema-validates the rendered manifests. It does not
-install the chart: a real install pulls ~15GB through SteamCMD into a pod that
-wants 8GB of RAM, which a hosted runner cannot do, and a job that always timed
-out would read as coverage that does not exist.
+install the chart: a real install pulls the game through SteamCMD into a pod
+that wants 8GB of RAM, which a hosted runner cannot do, and a job that always
+timed out would read as coverage that does not exist.
 
 Before tagging a release, run this against a real cluster:
 

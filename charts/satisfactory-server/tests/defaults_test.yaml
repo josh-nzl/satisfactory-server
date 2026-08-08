@@ -16,7 +16,7 @@ tests:
           path: spec.template.spec.containers[0].readinessProbe.exec.command
           value: [/bin/bash, /home/steam/healthcheck.sh]
 
-  # First boot downloads roughly 15GB through SteamCMD before the server answers
+  # First boot installs the game through SteamCMD before the server answers
   # anything. 120 attempts at 15s is a 30 minute budget.
   - it: gives the first SteamCMD download a long startup budget
     asserts:

@@ -57,8 +57,8 @@ helm install my-server satisfactory/satisfactory-server -f values.yaml
 
 ## The first start
 
-SteamCMD downloads roughly 15GB before the server answers anything. Expect
-10-30 minutes, longer on a slow link. The pod is un-Ready throughout, which is
+SteamCMD installs the game, about 3GB on disk, before the server answers
+anything. How long depends on your connection. The pod is un-Ready throughout, which is
 what the startup probe's long budget is for.
 
 ```console

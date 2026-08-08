@@ -26,6 +26,43 @@ become a pod:
 
 ## The pod CrashLoops immediately
 
+### `Failed to install app '1690800' (Missing configuration)`, exit code 8
+
+SteamCMD logs in, then fails about a second later without downloading anything.
+The entrypoint runs under `set -e`, so the container exits 8 and Kubernetes
+restarts it — usually two or three times before one attempt succeeds.
+
+The cause is a cold SteamCMD app-info cache. On a cold start SteamCMD fetches
+app metadata in the background while `app_update` runs in the foreground; when
+`app_update` wins that race there is no configuration for app 1690800 yet, and
+it fails with this message. The cache lives in the steam user's home, which is
+on the container filesystem — and every container start gets a fresh one, so
+the race is rerun on every start rather than only on a first install.
+
+**The chart avoids this** by keeping that cache on the `config` volume, so it
+stays warm across restarts and pod replacements. If you are seeing this
+repeatedly, check the mount survived:
+
+```console
+kubectl exec deployment/my-server-satisfactory-server -- \
+  ls /home/steam/.steam/steam/appcache/appinfo.vdf
+```
+
+A missing `appinfo.vdf` means the cache is not being persisted — most likely
+`persistence.config.enabled` is `false`, which puts it on an `emptyDir` that is
+discarded with the pod.
+
+**A genuinely fresh install still races**, because nothing can warm a cache that
+has never been written. Expect a few restarts on a brand-new volume, then clean
+starts from then on. Watch it make progress rather than counting restarts:
+
+```console
+kubectl logs -f deployment/my-server-satisfactory-server
+```
+
+Treat it as a real failure only if it keeps looping without the download ever
+starting.
+
 ### `Current user (N:N) is not root (0:0), and doesn't match the steam user/group`
 
 The container is running as a UID or GID the image was not built for. The chart
@@ -63,9 +100,10 @@ the entrypoint exits deliberately. Set it back to `false`.
 
 ## The pod never becomes Ready
 
-### On a first install, for 10-30 minutes
+### On a first install, while SteamCMD downloads
 
-Normal. SteamCMD is downloading roughly 15GB. Watch it:
+Normal. The install is about 3GB on disk; how long it takes depends on your
+connection. Watch it:
 
 ```console
 kubectl logs -f deployment/my-server-satisfactory-server
@@ -96,6 +134,33 @@ kubectl exec deployment/my-server-satisfactory-server -- \
 It POSTs to the server's HTTPS API on `SERVERGAMEPORT` and expects
 `.data.health == "healthy"`. If it fails, the game server process is not up —
 look further back in the log for a crash, and check the memory situation below.
+
+## Log lines that look alarming but are not
+
+### `Checking available storage: 4GB detected` and `it will probably fail`
+
+Harmless with the chart's default layout, and it prints on every start.
+
+The entrypoint measures free space on its current directory, which is under
+`/config` — the small saves claim. The game installs into `/config/gamefiles`,
+a separate and much larger claim it never looks at. Splitting the claims is what
+makes it check the wrong filesystem. Confirm there is really space:
+
+```console
+kubectl exec deployment/my-server-satisfactory-server -- \
+  df -h /config /config/gamefiles
+```
+
+It becomes a real warning if you set `persistence.gamefiles.enabled: false`,
+since everything then shares the `config` claim and that number is the one that
+matters.
+
+### `Checking available memory: 99GB detected`
+
+That is the node's memory, not the pod's. The check reads host memory rather
+than the cgroup limit, so it will happily report a comfortable figure for a pod
+limited to far less and will never warn you about an under-provisioned server.
+Size memory yourself with `resources` — see the OOMKilled section above.
 
 ## Players can see the server but cannot join
 
@@ -160,23 +225,39 @@ that is the first thing to remove.
 
 ## Shutdown and saving
 
-The image declares `STOPSIGNAL SIGINT`, but **Kubernetes ignores `STOPSIGNAL`
-and always sends SIGTERM**. Whether the server saves cleanly on SIGTERM has not
-been verified in this chart, so treat it as unknown rather than assumed: the
-rotating autosaves are what actually protect you.
+**The server does not save when the pod is deleted.** Anything since the last
+autosave is lost. This was measured on a live server: the game process received
+the shutdown signal, called `RequestExit`, and exited in under two seconds
+without writing a save file.
 
-If you observe unsaved progress being lost on pod deletion, forcing a SIGINT is
-worth trying:
+There is no configuration that changes this, and in particular **a `preStop`
+hook sending SIGINT does not help**. The image's entrypoint already traps
+SIGTERM and forwards SIGINT to the game process:
 
-```yaml
-lifecycle:
-  preStop:
-    exec:
-      command: ["/bin/sh", "-c", "kill -INT 1; sleep 30"]
-terminationGracePeriodSeconds: 60
+```bash
+trap shutdown SIGINT SIGTERM   # shutdown() runs: kill -INT $satisfactory_pid
 ```
 
-If you test this either way, the result is worth contributing back.
+So Kubernetes ignoring the image's `STOPSIGNAL SIGINT` is harmless — the game
+gets an INT either way, and still does not save. A hook running `kill -INT 1`
+would only duplicate what already happens.
+
+One detail worth knowing when reading the log: the entrypoint prints
+`Received SIGINT. Shutting down.` as a fixed string, whichever signal actually
+arrived. Kubernetes sends SIGTERM; the log says SIGINT regardless.
+
+The rotating autosaves are therefore the only protection. Shorten the interval
+in the game's own server settings if losing several minutes matters, and take a
+volume snapshot before anything disruptive:
+
+```console
+kubectl exec deployment/my-server-satisfactory-server -- \
+  ls -la /config/saved/server
+```
+
+Scope: tested once, on the image version this chart pins, by deleting the pod
+of a running claimed server. It shows this server exited without saving; it is
+not proof the game never saves under any shutdown path.
 
 ## Getting more detail
 
