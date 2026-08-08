@@ -4,6 +4,45 @@ entries:
   - annotations:
       artifacthub.io/category: gaming
       artifacthub.io/changes: |
+        - kind: fixed
+          description: Report the startup probe's budget correctly in NOTES.txt, which claimed 0 minutes rather than 30
+      artifacthub.io/images: |
+        - name: satisfactory-server
+          image: wolveix/satisfactory-server:v1.9.10
+      artifacthub.io/license: MIT
+      artifacthub.io/links: |
+        - name: Chart source
+          url: https://github.com/josh-nzl/satisfactory-server
+        - name: Upstream container image
+          url: https://github.com/wolveix/satisfactory-server
+    apiVersion: v2
+    appVersion: v1.9.10
+    created: "2026-08-08T05:37:55.896034224Z"
+    description: A Helm chart for running a Satisfactory dedicated game server on
+      Kubernetes
+    digest: 9e37554d9565d0ca7fe41950ad02f7d0b66af9d6c6b8ebc82c2f85aec861a058
+    home: https://github.com/josh-nzl/satisfactory-server
+    keywords:
+    - satisfactory
+    - game-server
+    - gaming
+    - steam
+    - dedicated-server
+    kubeVersion: '>=1.26.0-0'
+    maintainers:
+    - name: josh-nzl
+      url: https://github.com/josh-nzl
+    name: satisfactory-server
+    sources:
+    - https://github.com/josh-nzl/satisfactory-server
+    - https://github.com/wolveix/satisfactory-server
+    type: application
+    urls:
+    - https://github.com/josh-nzl/satisfactory-server/releases/download/satisfactory-server-0.1.2/satisfactory-server-0.1.2.tgz
+    version: 0.1.2
+  - annotations:
+      artifacthub.io/category: gaming
+      artifacthub.io/changes: |
         - kind: added
           description: Initial release
         - kind: fixed
@@ -42,4 +81,4 @@ entries:
     urls:
     - https://github.com/josh-nzl/satisfactory-server/releases/download/satisfactory-server-0.1.1/satisfactory-server-0.1.1.tgz
     version: 0.1.1
-generated: "2026-08-08T04:44:11.974690507Z"
+generated: "2026-08-08T05:37:55.896044535Z"
