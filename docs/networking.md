@@ -165,6 +165,54 @@ source address, but only routes to nodes actually running the pod — with one
 replica, that is exactly one node. Whether your load balancer handles that
 correctly depends on the implementation.
 
+## Certificates for the HTTPS API
+
+Given no certificate, the server generates a self-signed one on first start and
+stores it in `ServerSettings.<port>.sav`. Everything works; players just get a
+certificate warning when they join. Supplying your own removes it:
+
+```yaml
+tls:
+  enabled: true
+  existingSecret: satisfactory-tls
+```
+
+The Secret holds the certificate under `tls.crt` and the key under `tls.key` —
+the layout cert-manager already produces, so its Secrets work untouched. Point
+`tls.certKey` and `tls.keyKey` elsewhere if yours differ.
+
+**The certificate must name the exact host players type into the join box.**
+Satisfactory does strict hostname verification and does not accept wildcards, so
+a `*.example.com` certificate fails even for `play.example.com`. If players join
+by IP, that IP has to be a SAN. Get this wrong and the client reports
+`Failed to connect to server API` with nothing in the server log to say why —
+budget for that, because it looks exactly like a firewall problem.
+
+That constraint also means a public CA and DNS-01: the server has nothing
+listening on port 80, so HTTP-01 cannot validate. A private CA works for a LAN
+server, but every player then has to trust it, which is usually more work than
+the warning is worth.
+
+The chart deliberately does not create the certificate. To have Helm manage one
+anyway, put a cert-manager `Certificate` in `extraObjects` and name its
+`secretName` here.
+
+### Renewal
+
+The server reads the files once, at start. A renewed certificate therefore does
+nothing until the pod restarts, and the chart does not restart it for you —
+rolling the pod disconnects everyone mid-game, which is not a thing to do
+silently on cert-manager's schedule. Restart it when it suits you:
+
+```console
+kubectl rollout restart deployment/my-server-satisfactory-server
+```
+
+If you would rather it were automatic, [Reloader][reloader] does it from a pod
+annotation. Deliberately not wired in by default.
+
+[reloader]: https://github.com/stakater/Reloader
+
 ## Firewall and router
 
 For a server reachable from the internet, forward to whatever address the

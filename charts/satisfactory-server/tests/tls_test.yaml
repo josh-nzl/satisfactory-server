@@ -1,0 +1,165 @@
+suite: tls
+tests:
+  - it: adds nothing when disabled
+    templates:
+      - deployment.yaml
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.initContainers
+          count: 1
+      - lengthEqual:
+          path: spec.template.spec.volumes
+          count: 2
+
+  - it: refuses to render without a Secret to read the certificate from
+    set:
+      tls:
+        enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "tls.enabled is true but tls.existingSecret is empty. The chart does not generate a certificate; supply a Secret holding one issued for the exact hostname players connect to."
+
+  # cert-manager writes tls.crt and tls.key; the server will read nothing but
+  # cert_chain.pem and private_key.pem. The projection is what bridges the two.
+  - it: projects the Secret under the file names the server requires
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-cert
+    templates:
+      - deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[2].secret.secretName
+          value: my-cert
+      - contains:
+          path: spec.template.spec.volumes[2].secret.items
+          content:
+            key: tls.crt
+            path: cert_chain.pem
+      - contains:
+          path: spec.template.spec.volumes[2].secret.items
+          content:
+            key: tls.key
+            path: private_key.pem
+
+  - it: reads the keys from elsewhere in the Secret when told to
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-cert
+        certKey: chain.pem
+        keyKey: key.pem
+    templates:
+      - deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes[2].secret.items
+          content:
+            key: chain.pem
+            path: cert_chain.pem
+      - contains:
+          path: spec.template.spec.volumes[2].secret.items
+          content:
+            key: key.pem
+            path: private_key.pem
+
+  - it: keeps the key unreadable to anyone but its owner
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-cert
+    templates:
+      - deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[2].secret.defaultMode
+          value: 256 # 0400
+
+  # The server reads the certificate from the install root, not from /config.
+  - it: copies the certificate to the path the server reads
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-cert
+    templates:
+      - deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[1].name
+          value: init-certs
+      - matchRegex:
+          path: spec.template.spec.initContainers[1].command[2]
+          pattern: /config/gamefiles/FactoryGame/Certificates
+
+  # A Secret volume is always mounted read-only, and the root-mode entrypoint
+  # runs chown -R across /config. Mounting the Secret there would fail that.
+  - it: mounts the Secret outside /config and copies inwards
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-cert
+    templates:
+      - deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[1].volumeMounts
+          content:
+            name: tls
+            mountPath: /tls
+            readOnly: true
+      - notContains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tls
+
+  # Without the gamefiles claim mounted, the copy lands on the container
+  # filesystem and the server never sees it.
+  - it: writes onto the gamefiles claim when there is one
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-cert
+    templates:
+      - deployment.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[1].volumeMounts
+          content:
+            name: gamefiles
+            mountPath: /config/gamefiles
+
+  - it: writes onto the config claim when gamefiles has no claim of its own
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-cert
+      persistence:
+        gamefiles:
+          enabled: false
+    templates:
+      - deployment.yaml
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.initContainers[1].volumeMounts
+          count: 2
+      - contains:
+          path: spec.template.spec.initContainers[1].volumeMounts
+          content:
+            name: config
+            mountPath: /config
+
+  - it: still renders the user's own init containers after it
+    set:
+      tls:
+        enabled: true
+        existingSecret: my-cert
+      initContainers:
+        - name: mine
+          image: busybox
+    templates:
+      - deployment.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[2].name
+          value: mine

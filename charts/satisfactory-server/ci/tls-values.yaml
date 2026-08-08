@@ -1,0 +1,7 @@
+# A server whose HTTPS API presents a real certificate, so players joining it do
+# not get a certificate warning. The Secret is assumed to exist already -- from
+# cert-manager, or created by hand -- and must hold a certificate issued for the
+# exact hostname players type in.
+tls:
+  enabled: true
+  existingSecret: satisfactory-tls

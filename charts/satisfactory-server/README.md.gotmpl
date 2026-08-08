@@ -69,6 +69,17 @@ settings and is kept when the release is uninstalled. `gamefiles` holds the
 SteamCMD download, is not kept, and can be an `emptyDir` if you would rather
 re-download than pay for the storage.
 
+### `tls`
+
+Off by default, and the server then self-signs — players see a certificate
+warning when they join, and nothing else is wrong. Supply a Secret to replace
+it, laid out the way cert-manager writes one.
+
+The certificate has to name the exact host players type in. Satisfactory does
+not accept wildcards and verifies the hostname strictly, and a mismatch fails
+as a generic API connection error with nothing in the server log. See
+[docs/networking.md](../../docs/networking.md#certificates-for-the-https-api).
+
 ### `server.debug`
 
 Not a verbose-logging switch. The entrypoint prints a diagnostic dump and then
