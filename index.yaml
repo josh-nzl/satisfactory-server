@@ -1,0 +1,45 @@
+apiVersion: v1
+entries:
+  satisfactory-server:
+  - annotations:
+      artifacthub.io/category: gaming
+      artifacthub.io/changes: |
+        - kind: added
+          description: Initial release
+        - kind: fixed
+          description: Keep SteamCMD's app-info cache on the config volume, so restarts no longer fail with "Missing configuration"
+      artifacthub.io/images: |
+        - name: satisfactory-server
+          image: wolveix/satisfactory-server:v1.9.10
+      artifacthub.io/license: MIT
+      artifacthub.io/links: |
+        - name: Chart source
+          url: https://github.com/josh-nzl/satisfactory-server
+        - name: Upstream container image
+          url: https://github.com/wolveix/satisfactory-server
+    apiVersion: v2
+    appVersion: v1.9.10
+    created: "2026-08-08T04:44:11.974684445Z"
+    description: A Helm chart for running a Satisfactory dedicated game server on
+      Kubernetes
+    digest: 58e1801109ec4a06fef4c18c2c7007d10d24b2c5a88d874404c4a5732aa068d4
+    home: https://github.com/josh-nzl/satisfactory-server
+    keywords:
+    - satisfactory
+    - game-server
+    - gaming
+    - steam
+    - dedicated-server
+    kubeVersion: '>=1.26.0-0'
+    maintainers:
+    - name: josh-nzl
+      url: https://github.com/josh-nzl
+    name: satisfactory-server
+    sources:
+    - https://github.com/josh-nzl/satisfactory-server
+    - https://github.com/wolveix/satisfactory-server
+    type: application
+    urls:
+    - https://github.com/josh-nzl/satisfactory-server/releases/download/satisfactory-server-0.1.1/satisfactory-server-0.1.1.tgz
+    version: 0.1.1
+generated: "2026-08-08T04:44:11.974690507Z"
