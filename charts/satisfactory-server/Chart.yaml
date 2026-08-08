@@ -4,7 +4,7 @@ description: A Helm chart for running a Satisfactory dedicated game server on Ku
 type: application
 
 # Chart version. Bumped on every change to the chart itself.
-version: 0.1.0
+version: 0.1.1
 
 # Version of the wolveix/satisfactory-server image this chart is tested against,
 # and the default image tag. Note this pins the *container* version, not the game
@@ -49,3 +49,5 @@ annotations:
   artifacthub.io/changes: |
     - kind: added
       description: Initial release
+    - kind: fixed
+      description: Keep SteamCMD's app-info cache on the config volume, so restarts no longer fail with "Missing configuration"

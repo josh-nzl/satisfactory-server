@@ -8,7 +8,7 @@ matches the recorded default render:
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/name: satisfactory-server
         app.kubernetes.io/version: v1.9.10
-        helm.sh/chart: satisfactory-server-0.1.0
+        helm.sh/chart: satisfactory-server-0.1.1
       name: RELEASE-NAME-satisfactory-server
     spec:
       replicas: 1
@@ -121,8 +121,30 @@ matches the recorded default render:
               volumeMounts:
                 - mountPath: /config
                   name: config
+                - mountPath: /home/steam/.steam
+                  name: config
+                  subPath: steamcache
                 - mountPath: /config/gamefiles
                   name: gamefiles
+          initContainers:
+            - command:
+                - /bin/sh
+                - -c
+                - mkdir -p /config/steamcache
+              image: wolveix/satisfactory-server:v1.9.10
+              imagePullPolicy: IfNotPresent
+              name: init-steam-home
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: false
+                seccompProfile:
+                  type: RuntimeDefault
+              volumeMounts:
+                - mountPath: /config
+                  name: config
           securityContext:
             fsGroup: 1000
             fsGroupChangePolicy: OnRootMismatch
