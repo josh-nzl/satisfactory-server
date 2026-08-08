@@ -170,9 +170,10 @@ persistence:
     # -- Access modes for the claim.
     accessModes:
       - ReadWriteOnce
-    # -- Size of the claim. The install is around 3GB today; the default leaves
-    # room for it to grow with future game updates.
-    size: 25Gi
+    # -- Size of the claim. The Linux server files are around 3GB today, so
+    # this is mostly headroom for future game updates. Note most CSI drivers can
+    # grow a claim later but none can shrink one.
+    size: 10Gi
     # -- Extra annotations for the claim.
     annotations: {}
     # -- Extra labels for the claim.

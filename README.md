@@ -15,7 +15,7 @@ becoming a pod that CrashLoops with an error only visible in the container log.
 |---|---|
 | Kubernetes | 1.26 or newer |
 | Memory | 8GB minimum, 8-16GB recommended |
-| Storage | ~30GB across two claims |
+| Storage | ~15GB across two claims |
 | CPU | A CPU the game recognises; see [troubleshooting](docs/troubleshooting.md) if your nodes are VMs |
 
 The 1.26 floor comes from the default Service, which carries TCP and UDP on a

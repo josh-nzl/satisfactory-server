@@ -130,7 +130,7 @@ Not a verbose-logging switch. The entrypoint prints a diagnostic dump and then
 | persistence.gamefiles.existingClaim | string | `""` | Use an existing PersistentVolumeClaim instead of creating one. |
 | persistence.gamefiles.labels | object | `{}` | Extra labels for the claim. |
 | persistence.gamefiles.retain | bool | `false` | Keep the claim when the release is uninstalled. Off by default: the contents are re-downloadable. |
-| persistence.gamefiles.size | string | `"25Gi"` | Size of the claim. The install is around 3GB today; the default leaves room for it to grow with future game updates. |
+| persistence.gamefiles.size | string | `"10Gi"` | Size of the claim. The Linux server files are around 3GB today, so this is mostly headroom for future game updates. Note most CSI drivers can grow a claim later but none can shrink one. |
 | persistence.gamefiles.storageClass | string | `""` | StorageClass for the claim. This volume is disposable, so cheaper or slower storage is a reasonable choice. |
 | persistence.gamefiles.type | string | `"pvc"` | `pvc` or `emptyDir`. `emptyDir` re-downloads the whole game (about 3GB) on every pod start, so only use it where the node has fast, cheap local storage. |
 | pgid | string | `""` | Override `PGID`. Derived from `podSecurityContext.runAsGroup` when empty. |

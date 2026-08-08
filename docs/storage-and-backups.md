@@ -5,7 +5,7 @@
 | Claim | Mount | Default size | Kept on uninstall | Holds |
 |---|---|---|---|---|
 | `config` | `/config` | 5Gi | Yes | Saves, blueprints, backups, logs, server settings |
-| `gamefiles` | `/config/gamefiles` | 25Gi | No | The SteamCMD game installation |
+| `gamefiles` | `/config/gamefiles` | 10Gi | No | The SteamCMD game installation |
 
 The split exists because the two have nothing in common. `config` is small,
 irreplaceable, and worth snapshotting often. `gamefiles` is large, grows with
@@ -30,7 +30,9 @@ them in order.
 ### Sizing
 
 `gamefiles` holds an install of about 3GB today, and grows with each game
-update — 25Gi gives plenty of headroom and costs nothing to leave large. `config` holds saves measured in tens of megabytes plus
+update — 10Gi is roughly three times what it needs. The Linux server files are
+much smaller than the 12.4GB Windows figure quoted in most guides, which is
+where the oversized numbers in circulation come from. `config` holds saves measured in tens of megabytes plus
 `server.autosaveNum` rotating autosaves and the image's own backups; 5Gi is
 already generous, but a long-running world with a big autosave count can grow.
 

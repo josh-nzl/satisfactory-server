@@ -39,8 +39,13 @@ HOW TO CONNECT
       {{ include "satisfactory-server.fullname" . }} \
       -o jsonpath='{.spec.ports[?(@.name=="game-tcp")].nodePort}'
 
-  Connect to <ANY-NODE-IP>:<NODE-PORT>. The UDP port must be forwarded too, or
+  Connect to <ANY-NODE-IP> on that port. The UDP port must be forwarded too, or
   the client will find the server but never finish joining.
+
+  IMPORTANT: the game does not support port redirection on {{ .Values.server.gamePort }}. If the
+  node port above is not {{ .Values.server.gamePort }}, players cannot join, however the firewall
+  is configured. Node ports come from 30000-32767 unless the API server is
+  started with a wider --service-node-port-range. See docs/networking.md.
 {{- else }}
   The Service is ClusterIP, so it is not reachable from outside the cluster.
   For a quick test:
