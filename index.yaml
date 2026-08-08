@@ -4,6 +4,46 @@ entries:
   - annotations:
       artifacthub.io/category: skip-prediction
       artifacthub.io/changes: |
+        - kind: added
+          description: Serve the HTTPS API with your own certificate, via tls.existingSecret
+      artifacthub.io/images: |
+        - name: satisfactory-server
+          image: wolveix/satisfactory-server:v1.9.10
+      artifacthub.io/license: MIT
+      artifacthub.io/links: |
+        - name: Chart source
+          url: https://github.com/josh-nzl/satisfactory-server
+        - name: Upstream container image
+          url: https://github.com/wolveix/satisfactory-server
+    apiVersion: v2
+    appVersion: v1.9.10
+    created: "2026-08-08T08:34:47.828349794Z"
+    description: A Helm chart for running a Satisfactory dedicated game server on
+      Kubernetes
+    digest: 6e9a7db60fd146a5e165c63a03c3ea865c96789013586e8497fbd01a4868ac3b
+    home: https://github.com/josh-nzl/satisfactory-server
+    keywords:
+    - satisfactory
+    - game-server
+    - gaming
+    - steam
+    - dedicated-server
+    kubeVersion: '>=1.26.0-0'
+    maintainers:
+    - email: josh@segfault.nz
+      name: josh-nzl
+      url: https://github.com/josh-nzl
+    name: satisfactory-server
+    sources:
+    - https://github.com/josh-nzl/satisfactory-server
+    - https://github.com/wolveix/satisfactory-server
+    type: application
+    urls:
+    - https://github.com/josh-nzl/satisfactory-server/releases/download/satisfactory-server-0.1.5/satisfactory-server-0.1.5.tgz
+    version: 0.1.5
+  - annotations:
+      artifacthub.io/category: skip-prediction
+      artifacthub.io/changes: |
         - kind: fixed
           description: Give the maintainer an email, so Artifact Hub lists one at all
       artifacthub.io/images: |
@@ -160,4 +200,4 @@ entries:
     urls:
     - https://github.com/josh-nzl/satisfactory-server/releases/download/satisfactory-server-0.1.1/satisfactory-server-0.1.1.tgz
     version: 0.1.1
-generated: "2026-08-08T07:43:22.349379807Z"
+generated: "2026-08-08T08:34:47.828394778Z"
