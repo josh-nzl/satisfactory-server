@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - "charts/**"
+      # The Artifact Hub metadata reaches Artifact Hub only through the mirror
+      # step below, so editing it has to be able to trigger this workflow.
+      - "artifacthub-repo.yml"
   workflow_dispatch:
 
 permissions:
