@@ -3,7 +3,7 @@
 THE FIRST START TAKES A WHILE
   SteamCMD installs the game -- about 3GB on disk -- before the server can
   answer anything, and the pod stays un-Ready throughout. How long that takes
-  depends on your connection. The startup probe allows {{ mul .Values.probes.startup.failureThreshold .Values.probes.startup.periodSeconds | div 60 }} minutes for it.
+  depends on your connection. The startup probe allows {{ div (mul .Values.probes.startup.failureThreshold .Values.probes.startup.periodSeconds) 60 }} minutes for it.
 
   Some restarts during the first install are expected: SteamCMD intermittently
   fails with "Missing configuration" and exits 8. Each restart resumes the
