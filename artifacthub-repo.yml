@@ -1,9 +1,13 @@
 # Artifact Hub repository metadata.
 #
-# Fill in `repositoryID` with the ID Artifact Hub shows after you add this
-# repository at https://artifacthub.io/control-panel/repositories, then commit
-# it. Until then the repository can still be listed, it just isn't verified.
-repositoryID: ""
+# Artifact Hub reads this from beside index.yaml -- the root of gh-pages, not of
+# this branch. `release.yaml` mirrors it across, so a change here only reaches
+# Artifact Hub once that workflow has run.
+#
+# The ID is assigned when the repository is added at
+# https://artifacthub.io/control-panel/repositories, and matching it here is what
+# earns the Verified Publisher badge.
+repositoryID: "9111e459-e222-48a0-a853-36379affa078"
 
 # Used to claim ownership of the listing. The email must match the one used to
 # sign in to Artifact Hub, and this file is public.
