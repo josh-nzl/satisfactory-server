@@ -5,6 +5,46 @@ entries:
       artifacthub.io/category: skip-prediction
       artifacthub.io/changes: |
         - kind: fixed
+          description: Give the maintainer an email, so Artifact Hub lists one at all
+      artifacthub.io/images: |
+        - name: satisfactory-server
+          image: wolveix/satisfactory-server:v1.9.10
+      artifacthub.io/license: MIT
+      artifacthub.io/links: |
+        - name: Chart source
+          url: https://github.com/josh-nzl/satisfactory-server
+        - name: Upstream container image
+          url: https://github.com/wolveix/satisfactory-server
+    apiVersion: v2
+    appVersion: v1.9.10
+    created: "2026-08-08T07:43:22.349362902Z"
+    description: A Helm chart for running a Satisfactory dedicated game server on
+      Kubernetes
+    digest: 9841d5bd82c4ee958784f85d3c0bb644df54c0b51c444e174632dab5859a81e2
+    home: https://github.com/josh-nzl/satisfactory-server
+    keywords:
+    - satisfactory
+    - game-server
+    - gaming
+    - steam
+    - dedicated-server
+    kubeVersion: '>=1.26.0-0'
+    maintainers:
+    - email: josh@segfault.nz
+      name: josh-nzl
+      url: https://github.com/josh-nzl
+    name: satisfactory-server
+    sources:
+    - https://github.com/josh-nzl/satisfactory-server
+    - https://github.com/wolveix/satisfactory-server
+    type: application
+    urls:
+    - https://github.com/josh-nzl/satisfactory-server/releases/download/satisfactory-server-0.1.4/satisfactory-server-0.1.4.tgz
+    version: 0.1.4
+  - annotations:
+      artifacthub.io/category: skip-prediction
+      artifacthub.io/changes: |
+        - kind: fixed
           description: Use a valid Artifact Hub category, so the package can be indexed
       artifacthub.io/images: |
         - name: satisfactory-server
@@ -120,4 +160,4 @@ entries:
     urls:
     - https://github.com/josh-nzl/satisfactory-server/releases/download/satisfactory-server-0.1.1/satisfactory-server-0.1.1.tgz
     version: 0.1.1
-generated: "2026-08-08T05:54:29.481787471Z"
+generated: "2026-08-08T07:43:22.349379807Z"
