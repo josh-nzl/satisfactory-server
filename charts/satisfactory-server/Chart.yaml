@@ -36,7 +36,10 @@ maintainers:
     url: https://github.com/josh-nzl
 
 annotations:
-  artifacthub.io/category: gaming
+  # Artifact Hub's category is a closed enum of eight, none of which fit a game
+  # server -- there is no `gaming`. `skip-prediction` is the documented way to
+  # suppress its keyword-based classifier rather than be filed somewhere wrong.
+  artifacthub.io/category: skip-prediction
   artifacthub.io/license: MIT
   artifacthub.io/images: |
     - name: satisfactory-server
@@ -49,3 +52,5 @@ annotations:
   artifacthub.io/changes: |
     - kind: fixed
       description: Report the startup probe's budget correctly in NOTES.txt, which claimed 0 minutes rather than 30
+    - kind: fixed
+      description: Use a valid Artifact Hub category, so the package can be indexed
