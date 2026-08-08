@@ -145,6 +145,7 @@ jobs:
           fails --set podSecurityContext.runAsUser=0 --set podSecurityContext.runAsNonRoot=false --set podSecurityContext.fsGroup=0
           fails --set hostNetwork=true
           fails --set service.type=Bogus
+          fails --set tls.enabled=true
 
   docs:
     runs-on: ubuntu-latest

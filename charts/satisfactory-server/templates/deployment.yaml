@@ -69,6 +69,47 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
+        {{- if .Values.tls.enabled }}
+        # Copies the certificate onto the volume rather than mounting the Secret
+        # at the path the server reads. Two reasons, both of which have bitten
+        # this chart before: a Secret volume is always mounted read-only, and in
+        # root mode the entrypoint runs `chown -R` across /config, which would
+        # then fail; and mounting below /config/gamefiles makes the kubelet
+        # create the intermediate directories as root on a cold volume, locking
+        # SteamCMD out of the game directory it is about to install into.
+        - name: init-certs
+          image: {{ include "satisfactory-server.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          command:
+            - /bin/sh
+            - -c
+            # Removed before copying, not overwritten: the previous start left
+            # them mode 0400, and cp cannot reopen a file it has no write bit
+            # on, even as its owner. Every restart after the first would fail.
+            - |
+              set -e
+              certdir={{ include "satisfactory-server.certDir" . }}
+              mkdir -p "$certdir"
+              for f in cert_chain.pem private_key.pem; do
+                rm -f "$certdir/$f"
+                cp "/tls/$f" "$certdir/$f"
+                chmod 0400 "$certdir/$f"
+              done
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            {{- if .Values.persistence.gamefiles.enabled }}
+            - name: gamefiles
+              mountPath: /config/gamefiles
+            {{- end }}
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+        {{- end }}
         {{- with .Values.initContainers }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -167,6 +208,19 @@ spec:
           persistentVolumeClaim:
             claimName: {{ include "satisfactory-server.gamefilesClaimName" . }}
           {{- end }}
+        {{- end }}
+        {{- if .Values.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.tls.existingSecret }}
+            defaultMode: 0400
+            # Projected under the names the server insists on, so a stock
+            # cert-manager Secret needs no preparation.
+            items:
+              - key: {{ .Values.tls.certKey }}
+                path: cert_chain.pem
+              - key: {{ .Values.tls.keyKey }}
+                path: private_key.pem
         {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}

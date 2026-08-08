@@ -63,6 +63,15 @@ Names of the two claims, so the Deployment and the PVC templates cannot drift.
 {{- end }}
 
 {{/*
+Where the server looks for a custom certificate: FactoryGame/Certificates under
+the install root, which in this image is /config/gamefiles whether or not that
+path has a claim of its own. The two file names are fixed by the server.
+*/}}
+{{- define "satisfactory-server.certDir" -}}
+/config/gamefiles/FactoryGame/Certificates
+{{- end }}
+
+{{/*
 Security context IDs, resolved with an explicit nil check rather than `default`.
 
 `default` cannot distinguish 0 from unset, and 0 is exactly the value that means
@@ -140,6 +149,9 @@ CrashLoops with an error only visible in the container log.
 {{- end -}}
 {{- if eq (include "satisfactory-server.pgid" . | int) 0 -}}
 {{- fail "The resolved PGID is 0. The image refuses to run the server as the root group and will exit. When running as root, set podSecurityContext.fsGroup (or pgid) to the non-root GID the server should drop to." -}}
+{{- end -}}
+{{- if and .Values.tls.enabled (not .Values.tls.existingSecret) -}}
+{{- fail "tls.enabled is true but tls.existingSecret is empty. The chart does not generate a certificate; supply a Secret holding one issued for the exact hostname players connect to." -}}
 {{- end -}}
 {{- if and .Values.hostNetwork (eq .Values.service.type "LoadBalancer") -}}
 {{- fail "hostNetwork is enabled together with service.type LoadBalancer. Pick one: hostNetwork claims the ports directly on the node and makes the LoadBalancer redundant. Use service.type ClusterIP alongside hostNetwork." -}}

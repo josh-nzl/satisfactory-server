@@ -4,7 +4,7 @@ description: A Helm chart for running a Satisfactory dedicated game server on Ku
 type: application
 
 # Chart version. Bumped on every change to the chart itself.
-version: 0.1.4
+version: 0.1.5
 
 # Version of the wolveix/satisfactory-server image this chart is tested against,
 # and the default image tag. Note this pins the *container* version, not the game
@@ -51,5 +51,5 @@ annotations:
     - name: Upstream container image
       url: https://github.com/wolveix/satisfactory-server
   artifacthub.io/changes: |
-    - kind: fixed
-      description: Give the maintainer an email, so Artifact Hub lists one at all
+    - kind: added
+      description: Serve the HTTPS API with your own certificate, via tls.existingSecret

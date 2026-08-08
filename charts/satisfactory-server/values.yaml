@@ -81,6 +81,28 @@ server:
     # Prefer `extraEnvFrom` with a Secret over putting this in values.
     key: ""
 
+tls:
+  # -- Serve the HTTPS API with your own certificate instead of the self-signed
+  # one the server generates on first start. This is what stops players seeing a
+  # certificate warning when they join.
+  #
+  # **The certificate must name the exact host players type into the join box.**
+  # Satisfactory does strict hostname verification and does not accept wildcards,
+  # so a `*.example.com` certificate fails, and it fails as a bare
+  # `Failed to connect to server API` with nothing in the server log. If players
+  # join by IP, the certificate needs that IP as a SAN.
+  enabled: false
+  # -- Name of an existing Secret holding the certificate and its key. Required
+  # when `tls.enabled` is true; the chart never generates a certificate. A
+  # cert-manager Certificate's Secret works as-is -- point `extraObjects` at one
+  # if you want the chart to request it.
+  existingSecret: ""
+  # -- Key within the Secret holding the certificate chain, in PEM format. The
+  # default matches what cert-manager writes.
+  certKey: tls.crt
+  # -- Key within the Secret holding the private key, in PEM format.
+  keyKey: tls.key
+
 # -- Additional environment variables, in raw Kubernetes `env` form. Rendered
 # after the `server.*` block, so an entry here overrides the generated value.
 # Use this for any variable the image gains before the chart catches up.

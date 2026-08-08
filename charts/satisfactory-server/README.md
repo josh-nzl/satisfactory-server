@@ -1,6 +1,6 @@
 # satisfactory-server
 
-![Version: 0.1.4](https://img.shields.io/badge/Version-0.1.4-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.9.10](https://img.shields.io/badge/AppVersion-v1.9.10-informational?style=flat-square)
+![Version: 0.1.5](https://img.shields.io/badge/Version-0.1.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.9.10](https://img.shields.io/badge/AppVersion-v1.9.10-informational?style=flat-square)
 
 A Helm chart for running a Satisfactory dedicated game server on Kubernetes
 
@@ -75,6 +75,17 @@ Two claims by default. `config` holds saves, blueprints, backups and server
 settings and is kept when the release is uninstalled. `gamefiles` holds the
 SteamCMD download, is not kept, and can be an `emptyDir` if you would rather
 re-download than pay for the storage.
+
+### `tls`
+
+Off by default, and the server then self-signs — players see a certificate
+warning when they join, and nothing else is wrong. Supply a Secret to replace
+it, laid out the way cert-manager writes one.
+
+The certificate has to name the exact host players type in. Satisfactory does
+not accept wildcards and verifies the hostname strictly, and a mismatch fails
+as a generic API connection error with nothing in the server log. See
+[docs/networking.md](../../docs/networking.md#certificates-for-the-https-api).
 
 ### `server.debug`
 
@@ -193,6 +204,10 @@ Not a verbose-logging switch. The entrypoint prints a diagnostic dump and then
 | serviceAccount.name | string | `""` | Name to use. Generated from the fullname template when empty. |
 | sidecars | list | `[]` | Additional containers to run alongside the server. |
 | terminationGracePeriodSeconds | int | `60` | Grace period for shutdown. Kubernetes sends SIGTERM here; see docs/troubleshooting.md for how the server handles it and the `lifecycle` hook below if you want to force a SIGINT instead. |
+| tls.certKey | string | `"tls.crt"` | Key within the Secret holding the certificate chain, in PEM format. The default matches what cert-manager writes. |
+| tls.enabled | bool | `false` | Serve the HTTPS API with your own certificate instead of the self-signed one the server generates on first start. This is what stops players seeing a certificate warning when they join.  **The certificate must name the exact host players type into the join box.** Satisfactory does strict hostname verification and does not accept wildcards, so a `*.example.com` certificate fails, and it fails as a bare `Failed to connect to server API` with nothing in the server log. If players join by IP, the certificate needs that IP as a SAN. |
+| tls.existingSecret | string | `""` | Name of an existing Secret holding the certificate and its key. Required when `tls.enabled` is true; the chart never generates a certificate. A cert-manager Certificate's Secret works as-is -- point `extraObjects` at one if you want the chart to request it. |
+| tls.keyKey | string | `"tls.key"` | Key within the Secret holding the private key, in PEM format. |
 | tolerations | list | `[]` | Tolerations for the server pod. |
 | topologySpreadConstraints | list | `[]` | Topology spread constraints for the server pod. |
 

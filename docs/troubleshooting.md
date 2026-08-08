@@ -185,6 +185,26 @@ Service, your load balancer may be rejecting mixed protocols — see
 
 `kubectl port-forward` cannot be used to test this: it only carries TCP.
 
+### …and every port is open
+
+If you set `tls.enabled`, suspect the certificate before the network. The client
+verifies the hostname strictly and rejects wildcards, and a certificate that
+does not name the exact host the player typed fails the handshake with the same
+`Failed to connect to server API` — with nothing logged server-side, because the
+connection never gets far enough to log.
+
+Check what the certificate actually claims, against what players type:
+
+```console
+kubectl exec deploy/my-server-satisfactory-server -- \
+  openssl x509 -noout -subject -ext subjectAltName \
+  -in /config/gamefiles/FactoryGame/Certificates/cert_chain.pem
+```
+
+Setting `tls.enabled: false` reverts to the self-signed certificate, which
+always works and always warns. That is the quickest way to confirm the
+certificate is the problem rather than the network.
+
 ## The client says the server is unclaimed
 
 It is. A new server has to be claimed from the game client, with an admin
