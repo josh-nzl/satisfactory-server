@@ -91,6 +91,7 @@ helm lint charts/satisfactory-server
 helm unittest charts/satisfactory-server        # requires the helm-unittest plugin
 helm template t charts/satisfactory-server | kubeconform -strict -summary
 helm-docs --chart-search-root=charts --template-files=README.md.gotmpl
+ah lint --kind helm --path charts             # validates the artifacthub.io/* annotations
 ```
 
 `values.yaml` is the source of truth for the chart README — edit the comments

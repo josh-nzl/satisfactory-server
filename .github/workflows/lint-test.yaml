@@ -37,6 +37,17 @@ jobs:
 
       - uses: helm/chart-testing-action@v2
 
+      # Nothing else in this pipeline reads the artifacthub.io/* annotations:
+      # helm lint, ct lint and kubeconform all pass an invalid one happily, and
+      # Artifact Hub only rejects the package after it has been published. Two
+      # releases shipped a category that does not exist before this was noticed.
+      - name: Install ah
+        run: |
+          curl -sSLo ah.tar.gz \
+            https://github.com/artifacthub/hub/releases/download/v1.23.0/ah_1.23.0_linux_amd64.tar.gz
+          tar xf ah.tar.gz ah
+          sudo mv ah /usr/local/bin/
+
       - name: Detect changed charts
         id: list-changed
         run: |
@@ -51,6 +62,9 @@ jobs:
       - name: ct lint
         if: steps.list-changed.outputs.changed == 'true'
         run: ct lint --config .github/ct.yaml
+
+      - name: ah lint
+        run: ah lint --kind helm --path charts
 
   unittest:
     runs-on: ubuntu-latest
